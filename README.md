@@ -1,5 +1,8 @@
 # Bilibili Video Research
 
+<p align="right">
+  <strong>English</strong> · <a href="./README.zh-CN.md">简体中文</a>
+</p>
 <p align="center">
   <img src="./assets/readme/hero.png" width="100%" alt="Bilibili Video Research: a Bilibili URL flows through language, vision, or multimodal evidence into a traceable research report">
 </p>
