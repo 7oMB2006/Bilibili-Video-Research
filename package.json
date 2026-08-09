@@ -1,0 +1,28 @@
+{
+  "name": "codex-video-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Visual-only scientific video observation tools for Codex via Gemini.",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "tsx src/index.ts",
+    "test": "tsx --test test/*.test.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "@google/genai": "^2.13.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "dotenv": "^17.3.1",
+    "ffmpeg-static": "^5.3.0",
+    "yt-dlp-exec": "^1.0.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3"
+  }
+}
