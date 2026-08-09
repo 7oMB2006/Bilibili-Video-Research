@@ -8,6 +8,10 @@
 </p>
 
 <p align="center">
+  <img src="./assets/readme/character.gif" width="160" alt="Animated character mascot">
+</p>
+
+<p align="center">
   An evidence-aware Bilibili video research MCP for Codex.
 </p>
 

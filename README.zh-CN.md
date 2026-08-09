@@ -9,6 +9,10 @@
 </p>
 
 <p align="center">
+  <img src="./assets/readme/character.gif" width="160" alt="动态角色表情">
+</p>
+
+<p align="center">
   面向 Codex、具备证据边界意识的 Bilibili 视频研究 MCP。
 </p>
 
