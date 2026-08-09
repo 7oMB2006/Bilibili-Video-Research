@@ -26,6 +26,9 @@ npm run build
 
 Set the key only for the Codex MCP process, not globally in a checked-in file:
 
+Copy `.env.example` to an untracked `.env`, then fill in one provider key. The current
+default is StepFun Step Plan.
+
 ```toml
 [mcp_servers.codex_video]
 command = "D:\\Codex_cul\\codex-video-mcp\\node_modules\\.bin\\tsx.cmd"
