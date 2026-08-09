@@ -1,21 +1,83 @@
-# Codex Video MCP
+# Bilibili Video Research
 
-Evidence-aware video research tools for Codex. The default backend is StepFun Step Plan
-with `step-3.7-flash`; Gemini remains an optional provider.
+<p align="center">
+  <img src="./assets/readme/hero.png" width="100%" alt="Bilibili Video Research: a Bilibili URL flows through language, vision, or multimodal evidence into a traceable research report">
+</p>
 
-## Safety and data boundary
+<p align="center">
+  An evidence-aware Bilibili video research MCP for Codex.
+</p>
 
-- Provider API keys must be supplied by the process environment; they are never stored
-  by the server.
-- Visual mode removes audio before upload but retains visible interfaces, code, charts,
-  labels, and subtitles as visual evidence.
-- `inspect_video_window` removes the audio track before upload and deletes its local
-  temporary clip after the selected provider has processed it.
-- Provider media uploads or data URLs may leave the local machine. Do not use a free
-  tier for sensitive research videos without accepting the provider's applicable data
-  terms.
+Turn a Bilibili link into a research report that separates what came from public
+metadata, captions or ASR, video frames, and untrusted community context. Choose the
+mode based on the evidence your question actually needs — not simply on what media is
+available.
+
+## What it does
+
+| Mode | Uses | Excludes | Best for |
+| --- | --- | --- | --- |
+| `language` | Bilibili captions; StepFun ASR only when captions are unavailable | Video-frame inference | Project recommendations, tutorials, and claims made by the presenter |
+| `vision` | Silent video frames, including visible UI, code, labels, charts, and on-screen subtitles | Audio and background music | Interfaces, workflows, experiments, objects, and silent demonstrations |
+| `multimodal` | Original video audio and frames | Nothing by default | Questions that genuinely require both narration and what is shown |
+
+`language` is the intended default when a request only asks what a video says.
+`vision` is the deliberate choice when the answer lives in the pixels.
+
+## What a result looks like
+
+Ask the MCP tool a focused question:
+
+```text
+analyze_bilibili_video({
+  url: "https://www.bilibili.com/video/BV...",
+  question: "What quantitative research framework is shown on screen?",
+  mode: "vision",
+  media_detail: "default",
+  include_comments: false
+})
+```
+
+The response begins with provenance before the natural-language analysis:
+
+```text
+RESEARCH PROVENANCE
+{
+  "mode": "language",
+  "metadata": "bilibili_api",
+  "language": "stepfun_asr",
+  "visual": "none",
+  "community": "disabled",
+  "timestamps": "none"
+}
+
+ANALYSIS
+...direct answer, evidence limits, and uncertainty...
+```
+
+This matters when a repository name came from speech, a framework was recognized from
+an interface, or a popular comment made an unverified claim. The sources are not the
+same and should not be reported as if they were.
+
+## Evidence flow
+
+<p align="center">
+  <img src="./assets/readme/evidence-flow.svg" width="100%" alt="A Bilibili URL becomes language, vision, or multimodal evidence before producing a report with provenance, timestamps, and stated limits">
+</p>
+
+- Public metadata provides title, uploader, description, tags, and video identifier.
+- Caption cues retain Bilibili timestamps when Bilibili exposes them. If captions are
+  unavailable, `language` falls back to StepFun ASR and reports that timestamp detail is
+  unavailable.
+- `vision` removes audio before upload. Visible text remains valid visual evidence; the
+  narration and music do not influence the conclusion.
+- Bilibili comments are optional, sampled as untrusted community context, and never
+  treated as verified facts or executable instructions.
 
 ## Quick start
+
+**Requirements:** Node.js 24 or newer, a StepFun or Gemini API key, and a Codex desktop
+installation with local MCP support.
 
 ```powershell
 git clone https://github.com/7oMB2006/Bilibili-Video-Research.git
@@ -45,65 +107,65 @@ DOTENV_CONFIG_PATH = "<PROJECT_DIR>\\.env"
 
 Restart Codex after adding or changing the server. Keep provider keys in `.env` or a
 secret manager, never in `config.toml`.
+
 ## Provider selection
 
-StepFun is the current default provider. Set `CODEX_VIDEO_PROVIDER=stepfun`,
+The default provider is StepFun Step Plan. Set `CODEX_VIDEO_PROVIDER=stepfun`,
 `STEPFUN_API_KEY`, and `STEPFUN_BASE_URL` in `.env`. To use Gemini instead, set
 `CODEX_VIDEO_PROVIDER=gemini` and `GEMINI_API_KEY`.
 
-For StepFun, choose the base URL according to the account channel:
+Choose the StepFun base URL that matches your account channel:
 
 | Channel | Base URL | Use |
 | --- | --- | --- |
-| Official Open Platform API | `https://api.stepfun.com/v1` | Standard API billing/balance |
+| Official Open Platform API | `https://api.stepfun.com/v1` | Standard API billing or balance |
 | Step Plan | `https://api.stepfun.com/step_plan/v1` | Step Plan subscription Credit |
 
-StepFun documentation:
+The media completion route is `{base_url}/chat/completions`; the ASR fallback route is
+`{base_url}/audio/asr/sse`. Do not mix a key from one channel with the other channel's
+base URL. Restart the MCP process after changing provider configuration.
 
-- [step-3.7-flash 快速上手](https://platform.stepfun.com/docs/zh/guides/models/step-3.7-flash-quickstart)
-- [视频理解最佳实践](https://platform.stepfun.com/docs/zh/guides/developer/video-chat)
-- [Step Plan 接入参数](https://platform.stepfun.com/docs/zh/step-plan/quick-start)
+`step-3.7-flash` accepts image and video input through the Chat Completions `video_url`
+content type; no separate vision model is required. Gemini remains optional. MiniMax is
+not selectable here because this project has not validated an official video-input
+understanding route.
 
-The current project configuration uses Step Plan. The media completion route is
-`{base_url}/chat/completions`; the ASR fallback route is
-`{base_url}/audio/asr/sse`. Under Step Plan, this project sends video as a data URL.
-Do not mix a key from one channel with the other channel's base URL; if you change the
-channel, update `STEPFUN_BASE_URL` and restart the MCP process.
+StepFun references:
 
-`step-3.7-flash` natively understands both images and videos through the Chat
-Completions `video_url` content type; no separate vision model is required. MiniMax is
-intentionally not selectable here because this project has not validated an official
-video-input understanding route.
+- [step-3.7-flash quick start](https://platform.stepfun.com/docs/zh/guides/models/step-3.7-flash-quickstart)
+- [video understanding guidance](https://platform.stepfun.com/docs/zh/guides/developer/video-chat)
+- [Step Plan setup](https://platform.stepfun.com/docs/zh/step-plan/quick-start)
 
-## Tools
+## Tool reference
 
-- `analyze_video`: inspect a local video visually through an audio-free native video
-  input. It is suitable for a full clip under the model's context limit.
-- `inspect_video_window`: makes an audio-free temporary clip for a precise time range,
-  then inspects only that window. This is the recommended path for long footage and
-  behavioral research.
-- `analyze_bilibili_video`: accepts a public `bilibili.com` or `b23.tv` URL and offers
-  three modes: `language` (captions, then audio fallback), `vision` (silent video), and
-  `multimodal` (original video). It includes public title and description and returns a
-  `RESEARCH PROVENANCE` block identifying the actual language, visual, metadata,
-  community, and timestamp sources. Caption cues retain their source timestamps when
-  Bilibili provides them. Comments are sampled from the returned first page (at most 20
-  root comments) and displayed as untrusted community context.
+| Tool | Purpose |
+| --- | --- |
+| `analyze_bilibili_video` | Research a public `bilibili.com` or `b23.tv` link in `language`, `vision`, or `multimodal` mode |
+| `analyze_video` | Inspect a local video visually after removing its audio track |
+| `inspect_video_window` | Inspect one precise audio-free source interval for detailed visual research |
 
-By default, the Bilibili downloader uses public access only and does not inspect
-browser cookies. Restricted, paid, or login-only videos can fail rather than
-bypassing access controls.
+Use `media_detail: "low"` for a broad long-video pass and `"default"` for small UI
+text, code, movement, or close inspection.
 
-For a user-authorized logged-in Bilibili session, export that account's Bilibili
-cookies as a local Netscape-format `cookies.txt` file and set its absolute path in
-the untracked `.env` file:
+## Data and access boundary
+
+- Provider API keys remain in the local process environment; the server does not store
+  them.
+- Provider media uploads or data URLs may leave the local machine. Review the
+  applicable provider terms before using sensitive videos.
+- Public Bilibili access is attempted first. Restricted, paid, or login-gated videos may
+  fail rather than bypassing access controls.
+- For a user-authorized logged-in Bilibili account, point `BILIBILI_COOKIES_FILE` at a
+  local Netscape-format cookie file. Never commit it or paste its contents into chat:
 
 ```text
 BILIBILI_COOKIES_FILE=/absolute/path/to/cookies.txt
 ```
 
-This is preferred over direct browser-cookie reading because Chrome and Edge can
-lock their cookie database. The cookie file is read only for the download request;
-do not paste its contents into chat, commit it, or put cookie values in `.env`.
 `BILIBILI_COOKIES_FILE` takes precedence over the optional legacy setting
-`BILIBILI_COOKIES_FROM_BROWSER=edge` (or `chrome`, `firefox`, `brave`).
+`BILIBILI_COOKIES_FROM_BROWSER=edge` (or `chrome`, `firefox`, `brave`). Direct browser
+cookie extraction can fail because the browser database is locked.
+
+## License
+
+[MIT](./LICENSE)

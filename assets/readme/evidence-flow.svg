@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 390" role="img" aria-labelledby="title desc">
+  <title id="title">Evidence flow</title>
+  <desc id="desc">A Bilibili video produces language, visual, or multimodal evidence that is combined into a research report with provenance, timestamps, and uncertainty.</desc>
+  <rect width="1200" height="390" fill="#0d1117"/>
+  <text x="54" y="65" fill="#f0f6fc" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700">One source, three evidence contracts</text>
+  <text x="54" y="96" fill="#8b949e" font-family="Arial, Helvetica, sans-serif" font-size="18">Choose the mode based on what the answer actually depends on.</text>
+  <rect x="54" y="148" width="194" height="146" rx="14" fill="#24131c" stroke="#f25d8e"/>
+  <text x="79" y="189" fill="#ffdce8" font-family="Consolas, monospace" font-size="18">BILIBILI URL</text>
+  <text x="79" y="222" fill="#c9d1d9" font-family="Arial, Helvetica, sans-serif" font-size="18">title · metadata</text>
+  <text x="79" y="249" fill="#c9d1d9" font-family="Arial, Helvetica, sans-serif" font-size="18">captions · video</text>
+  <path d="M248 221H306" stroke="#8b949e" stroke-width="2"/><path d="M300 214L313 221 300 228" fill="none" stroke="#8b949e" stroke-width="2"/>
+  <rect x="324" y="122" width="216" height="72" rx="12" fill="#302717"/><text x="350" y="153" fill="#f6bd60" font-family="Consolas, monospace" font-size="18">LANGUAGE</text><text x="350" y="178" fill="#c9d1d9" font-family="Arial, Helvetica, sans-serif" font-size="16">captions → ASR fallback</text>
+  <rect x="324" y="209" width="216" height="72" rx="12" fill="#172b42"/><text x="375" y="240" fill="#66b1ff" font-family="Consolas, monospace" font-size="18">VISION</text><text x="350" y="265" fill="#c9d1d9" font-family="Arial, Helvetica, sans-serif" font-size="16">silent frames only</text>
+  <rect x="324" y="296" width="216" height="72" rx="12" fill="#281f39"/><text x="345" y="327" fill="#d2a8ff" font-family="Consolas, monospace" font-size="18">MULTIMODAL</text><text x="350" y="352" fill="#c9d1d9" font-family="Arial, Helvetica, sans-serif" font-size="16">audio + frames</text>
+  <path d="M540 158H636M540 245H636M540 332H636" stroke="#8b949e" stroke-width="2"/><path d="M630 151L643 158 630 165M630 238L643 245 630 252M630 325L643 332 630 339" fill="none" stroke="#8b949e" stroke-width="2"/>
+  <rect x="655" y="154" width="490" height="174" rx="16" fill="#161b22" stroke="#30363d"/>
+  <text x="688" y="197" fill="#f0f6fc" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700">Research report</text>
+  <path d="M688 217H1110" stroke="#30363d"/>
+  <text x="688" y="254" fill="#c9d1d9" font-family="Consolas, monospace" font-size="18">mode                 language | vision | multimodal</text>
+  <text x="688" y="283" fill="#c9d1d9" font-family="Consolas, monospace" font-size="18">provenance           metadata · captions / ASR · frames</text>
+  <text x="688" y="312" fill="#c9d1d9" font-family="Consolas, monospace" font-size="18">timestamps / limits  stated where available</text>
+</svg>
