@@ -1,69 +1,64 @@
 # Codex Video MCP
 
-Video research tools for Codex. The current default backend is StepFun Step Plan with
-`step-3.7-flash`; Gemini remains an optional provider. This server is not connected to
-Xiaoxiu, chat history, or any recommendation workflow.
+Evidence-aware video research tools for Codex. The default backend is StepFun Step Plan
+with `step-3.7-flash`; Gemini remains an optional provider.
 
 ## Safety and data boundary
 
 - Provider API keys must be supplied by the process environment; they are never stored
   by the server.
 - Visual mode removes audio before upload but retains visible interfaces, code, charts,
-  labels, and subtitles as frame evidence.
+  labels, and subtitles as visual evidence.
 - `inspect_video_window` removes the audio track before upload and deletes its local
-  temporary clip after Gemini has processed it.
+  temporary clip after the selected provider has processed it.
 - Provider media uploads or data URLs may leave the local machine. Do not use a free
   tier for sensitive research videos without accepting the provider's applicable data
   terms.
 
-## Install
+## Quick start
 
 ```powershell
-cd D:\Codex_cul\codex-video-mcp
-npm install
+git clone https://github.com/7oMB2006/Bilibili-Video-Research.git
+cd Bilibili-Video-Research
+npm ci
 npm run build
+Copy-Item .env.example .env
 ```
 
-Set the key only for the Codex MCP process, not globally in a checked-in file:
+Open `.env` and fill in one provider key. It is ignored by Git and must never be
+committed. The default configuration uses StepFun Step Plan.
 
-Copy `.env.example` to an untracked `.env`, then fill in one provider key. The current
-default is StepFun Step Plan.
+## Codex MCP configuration (Windows)
+
+In `%USERPROFILE%\.codex\config.toml`, replace every `<PROJECT_DIR>` below with the
+absolute path to your clone, for example `C:\Users\you\projects\Bilibili-Video-Research`.
 
 ```toml
 [mcp_servers.codex_video]
-command = "D:\\Codex_cul\\codex-video-mcp\\node_modules\\.bin\\tsx.cmd"
-args = ["D:\\Codex_cul\\codex-video-mcp\\src\\index.ts"]
+command = "<PROJECT_DIR>\\node_modules\\.bin\\tsx.cmd"
+args = ["<PROJECT_DIR>\\src\\index.ts"]
 startup_timeout_sec = 120
 
 [mcp_servers.codex_video.env]
-DOTENV_CONFIG_PATH = "D:\\Codex_cul\\codex-video-mcp\\.env"
+DOTENV_CONFIG_PATH = "<PROJECT_DIR>\\.env"
 ```
 
-Restart Codex after adding the server. Prefer a named environment variable in the
-launcher or a secret manager over placing a real key in `config.toml`.
-
+Restart Codex after adding or changing the server. Keep provider keys in `.env` or a
+secret manager, never in `config.toml`.
 ## Provider selection
 
-StepFun is the current default provider. Set one provider key and restart Codex:
+StepFun is the current default provider. Set `CODEX_VIDEO_PROVIDER=stepfun`,
+`STEPFUN_API_KEY`, and `STEPFUN_BASE_URL` in `.env`. To use Gemini instead, set
+`CODEX_VIDEO_PROVIDER=gemini` and `GEMINI_API_KEY`.
 
-```powershell
-# Gemini (optional)
-setx GEMINI_API_KEY "your-key"
-
-# StepFun video understanding
-setx STEPFUN_API_KEY "your-key"
-setx CODEX_VIDEO_PROVIDER "stepfun"
-```
-
-Set `CODEX_VIDEO_PROVIDER=gemini` to switch providers. For StepFun, choose the base
-URL according to the account channel:
+For StepFun, choose the base URL according to the account channel:
 
 | Channel | Base URL | Use |
 | --- | --- | --- |
 | Official Open Platform API | `https://api.stepfun.com/v1` | Standard API billing/balance |
 | Step Plan | `https://api.stepfun.com/step_plan/v1` | Step Plan subscription Credit |
 
-官方参考：
+StepFun documentation:
 
 - [step-3.7-flash 快速上手](https://platform.stepfun.com/docs/zh/guides/models/step-3.7-flash-quickstart)
 - [视频理解最佳实践](https://platform.stepfun.com/docs/zh/guides/developer/video-chat)
@@ -104,7 +99,7 @@ cookies as a local Netscape-format `cookies.txt` file and set its absolute path 
 the untracked `.env` file:
 
 ```text
-BILIBILI_COOKIES_FILE=D:\\AgentCredentials\\bilibili-cookies.txt
+BILIBILI_COOKIES_FILE=/absolute/path/to/cookies.txt
 ```
 
 This is preferred over direct browser-cookie reading because Chrome and Edge can
