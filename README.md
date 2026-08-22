@@ -121,7 +121,7 @@ Copy-Item .env.example .env
 ```
 
 Open `.env` and fill in one provider key. It is ignored by Git and must never be
-committed. The default configuration uses StepFun Step Plan.
+committed. The default configuration uses StepFun's official Open Platform API.
 
 ## Codex MCP configuration (Windows)
 
@@ -143,16 +143,23 @@ secret manager, never in `config.toml`.
 
 ## Provider selection
 
-The default provider is StepFun Step Plan. Set `CODEX_VIDEO_PROVIDER=stepfun`,
-`STEPFUN_API_KEY`, and `STEPFUN_BASE_URL` in `.env`. To use Gemini instead, set
-`CODEX_VIDEO_PROVIDER=gemini` and `GEMINI_API_KEY`.
+The default provider is StepFun through the official Open Platform API. Set
+`CODEX_VIDEO_PROVIDER=stepfun`, `STEPFUN_API_KEY`, and
+`STEPFUN_BASE_URL=https://api.stepfun.com/v1` in `.env`. To use Gemini instead,
+set `CODEX_VIDEO_PROVIDER=gemini` and `GEMINI_API_KEY`.
 
 Choose the StepFun base URL that matches your account channel:
 
 | Channel | Base URL | Use |
 | --- | --- | --- |
 | Official Open Platform API | `https://api.stepfun.com/v1` | Standard API billing or balance |
-| Step Plan | `https://api.stepfun.com/step_plan/v1` | Step Plan subscription Credit |
+| Step Plan | `https://api.stepfun.com/step_plan/v1` | Optional Step Plan subscription Credit |
+
+StepFun is the default because `step-3.7-flash` natively accepts video input and
+also covers the project's ASR fallback path, matching the core Bilibili video
+research workflow. This is a project-fit choice, not a claim that StepFun is
+best for every task. Step Plan remains available as an optional channel for
+accounts that have Step Plan Credit access.
 
 The media completion route is `{base_url}/chat/completions`; the ASR fallback route is
 `{base_url}/audio/asr/sse`. Do not mix a key from one channel with the other channel's

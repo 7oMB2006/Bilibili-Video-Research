@@ -108,7 +108,7 @@ npm run build
 Copy-Item .env.example .env
 ```
 
-打开 `.env` 并填入一个提供商的 Key。该文件被 Git 忽略，绝不能提交。默认配置使用 StepFun Step Plan。
+打开 `.env` 并填入一个提供商的 Key。该文件被 Git 忽略，绝不能提交。默认配置使用 StepFun 官方开放平台 API。
 
 ## Codex MCP 配置（Windows）
 
@@ -128,14 +128,22 @@ DOTENV_CONFIG_PATH = "<PROJECT_DIR>\\.env"
 
 ## 提供商选择
 
-默认提供商是 StepFun Step Plan。在 `.env` 中设置 `CODEX_VIDEO_PROVIDER=stepfun`、`STEPFUN_API_KEY` 与 `STEPFUN_BASE_URL`。如需 Gemini，设置 `CODEX_VIDEO_PROVIDER=gemini` 与 `GEMINI_API_KEY`。
+默认提供商是通过官方开放平台 API 调用的 StepFun。在 `.env` 中设置
+`CODEX_VIDEO_PROVIDER=stepfun`、`STEPFUN_API_KEY` 与
+`STEPFUN_BASE_URL=https://api.stepfun.com/v1`。如需 Gemini，设置
+`CODEX_VIDEO_PROVIDER=gemini` 与 `GEMINI_API_KEY`。
+
+选择 StepFun 作为默认提供商，是因为 `step-3.7-flash` 原生支持视频输入，
+同时能够覆盖本项目的 ASR 回退路径，更贴合 Bilibili 视频研究这一核心工作流。
+这是基于项目适配度的选择，并不表示 StepFun 在所有任务上都优于其他模型。
+如果账户拥有 Step Plan Credit，也可以将 Base URL 切换到 Step Plan 渠道。
 
 根据账户渠道选择相应的 StepFun base URL：
 
 | 渠道 | Base URL | 用途 |
 | --- | --- | --- |
 | 官方开放平台 API | `https://api.stepfun.com/v1` | 标准 API 计费或余额 |
-| Step Plan | `https://api.stepfun.com/step_plan/v1` | Step Plan 订阅 Credit |
+| Step Plan | `https://api.stepfun.com/step_plan/v1` | 可选的 Step Plan 订阅 Credit |
 
 媒体理解的 completion 路径是 `{base_url}/chat/completions`；ASR 回退路径是 `{base_url}/audio/asr/sse`。不要混用不同渠道的 Key 和 Base URL；变更提供商配置后重启 MCP 进程。
 
