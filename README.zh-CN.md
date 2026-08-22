@@ -38,7 +38,9 @@ analyze_bilibili_video({
   question: "画面里展示的量化研究框架是什么？",
   mode: "vision",
   media_detail: "default",
-  include_comments: false
+  include_comments: false,
+  start_seconds: 0,
+  end_seconds: 321
 })
 ```
 
@@ -60,6 +62,28 @@ ANALYSIS
 ```
 
 这很重要：从语音中听到的仓库名、从界面中辨认出的框架、热门评论中的断言，不是同一类来源，不能被写成同等可信的事实。
+
+## 应用示例：定向研究量化视频
+
+下面展示一个实际流程：先提出研究问题，再把长视频限制在已知时间段内，最后查看明确区分“直接可见证据”和“不确定推断”的分析结果。
+
+### 1. 提出研究问题
+
+<p align="center">
+  <img src="./assets/readme/example-request.png" width="900" alt="用户提出关于量化视频中候选趋势线和加权逻辑的研究问题">
+</p>
+
+### 2. 指定研究片段
+
+<p align="center">
+  <img src="./assets/readme/example-time-window.png" width="900" alt="使用 vision 模式，将 Bilibili 视频限制在前五分二十一秒">
+</p>
+
+### 3. 查看有证据边界的结果
+
+<p align="center">
+  <img src="./assets/readme/example-result.png" width="900" alt="视觉分析区分画面中可见的候选线和暂时无法确认的评分细节">
+</p>
 
 ## 证据流
 
