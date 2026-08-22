@@ -135,8 +135,10 @@ DOTENV_CONFIG_PATH = "<PROJECT_DIR>\\.env"
 
 选择 StepFun 作为默认提供商，是因为 `step-3.7-flash` 原生支持视频输入，
 同时能够覆盖本项目的 ASR 回退路径，更贴合 Bilibili 视频研究这一核心工作流。
-这是基于项目适配度的选择，并不表示 StepFun 在所有任务上都优于其他模型。
-如果账户拥有 Step Plan Credit，也可以将 Base URL 切换到 Step Plan 渠道。
+此外，作者在多模态任务中使用阶跃星辰的模型较多，且整体体验良好，因此本项目优先
+对 StepFun 做了适配并将其作为首选提供商。这是基于项目适配度和实际使用体验的选择，
+并不表示 StepFun 在所有任务上都优于其他模型。如果账户拥有 Step Plan Credit，也可以
+将 Base URL 切换到 Step Plan 渠道；如果你有其他不错的 Provider，也可以自行尝试。
 
 根据账户渠道选择相应的 StepFun base URL：
 
