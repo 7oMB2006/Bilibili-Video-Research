@@ -94,29 +94,38 @@ export function getFfmpegPath(): string {
   return executable;
 }
 
-export async function createSilentWindow(videoPath: string, startSeconds: number, endSeconds: number): Promise<{ directory: string; clipPath: string }> {
+async function createWindow(videoPath: string, startSeconds: number, endSeconds: number, includeAudio: boolean): Promise<{ directory: string; clipPath: string }> {
   if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || startSeconds < 0 || endSeconds <= startSeconds) {
     throw new Error("start_seconds must be >= 0 and end_seconds must be greater than start_seconds.");
   }
   const directory = await fs.mkdtemp(path.join(tmpdir(), "codex-video-mcp-"));
   const clipPath = path.join(directory, "window.mp4");
   try {
-    await execFile(getFfmpegPath(), [
+    const args = [
       "-hide_banner", "-loglevel", "error", "-y",
       "-ss", String(startSeconds),
       "-i", videoPath,
       "-t", String(endSeconds - startSeconds),
       "-map", "0:v:0?",
-      "-an",
+      ...(includeAudio ? ["-map", "0:a:0?", "-c:a", "aac", "-shortest"] : ["-an"]),
       "-c:v", "libx264",
       "-movflags", "+faststart",
       clipPath,
-    ]);
+    ];
+    await execFile(getFfmpegPath(), args);
     return { directory, clipPath };
   } catch (error) {
     await fs.rm(directory, { recursive: true, force: true });
     throw error;
   }
+}
+
+export async function createSilentWindow(videoPath: string, startSeconds: number, endSeconds: number): Promise<{ directory: string; clipPath: string }> {
+  return createWindow(videoPath, startSeconds, endSeconds, false);
+}
+
+export async function createVideoWindow(videoPath: string, startSeconds: number, endSeconds: number): Promise<{ directory: string; clipPath: string }> {
+  return createWindow(videoPath, startSeconds, endSeconds, true);
 }
 
 export async function createSilentVideo(videoPath: string): Promise<{ directory: string; videoPath: string }> {
