@@ -85,9 +85,11 @@ server.registerTool("analyze_bilibili_video", {
     mode: z.enum(["language", "vision", "multimodal"]).describe("language: captions then audio only; vision: silent video only; multimodal: original video with both channels."),
     media_detail: z.enum(["low", "default"]).default("default").describe("Use low for a broad long-video pass and default for close inspection."),
     include_comments: z.boolean().default(true).describe("Attach untrusted community context. Fetches at most 20 most-liked root comments but presents only 3-5 representative comments."),
+    start_seconds: z.number().min(0).optional().describe("Optional source-video interval start in seconds. Provide together with end_seconds."),
+    end_seconds: z.number().positive().optional().describe("Optional source-video interval end in seconds. Provide together with start_seconds."),
   },
   annotations: { readOnlyHint: true },
-}, async ({ url, question, mode, media_detail, include_comments }) => {
+}, async ({ url, question, mode, media_detail, include_comments, start_seconds, end_seconds }) => {
   try {
     return result(await researchBilibiliVideo({
       url,
@@ -95,6 +97,8 @@ server.registerTool("analyze_bilibili_video", {
       mode,
       mediaDetail: media_detail,
       includeComments: include_comments,
+      startSeconds: start_seconds,
+      endSeconds: end_seconds,
     }));
   } catch (error) {
     return failed(error);

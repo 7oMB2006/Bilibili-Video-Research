@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildVisualResearchPrompt } from "../src/video-analysis.js";
-import { selectRepresentativeComments } from "../src/bilibili.js";
+import { selectCaptionCues, selectRepresentativeComments, validateBilibiliWindow } from "../src/bilibili.js";
 
 test("visual research prompt excludes audio while retaining useful visible text", () => {
   const prompt = buildVisualResearchPrompt({
@@ -41,4 +41,24 @@ test("window prompt preserves source timing", () => {
   });
 
   assert.match(prompt, /12\.00s to 18\.50s/);
+});
+
+
+test("caption selection respects an explicit source interval", () => {
+  const cues = [
+    { start: 0, end: 10, content: "before and overlap" },
+    { start: 20, end: 30, content: "inside" },
+    { start: 40, end: 50, content: "after" },
+    { start: Number.NaN, end: Number.NaN, content: "untimed" },
+  ];
+
+  assert.deepEqual(selectCaptionCues(cues, 8, 22).map((cue) => cue.content), ["before and overlap", "inside", "untimed"]);
+});
+
+test("Bilibili source windows require a valid bounded pair", () => {
+  assert.doesNotThrow(() => validateBilibiliWindow(60));
+  assert.doesNotThrow(() => validateBilibiliWindow(60, 10, 20));
+  assert.throws(() => validateBilibiliWindow(60, 10), /provided together/);
+  assert.throws(() => validateBilibiliWindow(60, 20, 10), /greater than start_seconds/);
+  assert.throws(() => validateBilibiliWindow(60, 10, 61), /within the video duration/);
 });

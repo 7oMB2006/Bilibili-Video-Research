@@ -147,12 +147,17 @@ StepFun references:
 
 | Tool | Purpose |
 | --- | --- |
-| `analyze_bilibili_video` | Research a public `bilibili.com` or `b23.tv` link in `language`, `vision`, or `multimodal` mode |
+| `analyze_bilibili_video` | Research a public `bilibili.com` or `b23.tv` link in `language`, `vision`, or `multimodal` mode; optionally restrict analysis with `start_seconds` and `end_seconds` |
 | `analyze_video` | Inspect a local video visually after removing its audio track |
 | `inspect_video_window` | Inspect one precise audio-free source interval for detailed visual research |
 
 Use `media_detail: "low"` for a broad long-video pass and `"default"` for small UI
 text, code, movement, or close inspection.
+
+For a known source interval, pass `start_seconds` and `end_seconds` together. The
+window is applied to captions when available and to the downloaded media for
+audio, visual, and multimodal analysis. Explicit windows skip the automatic
+long-video coarse pass.
 
 ## Data and access boundary
 

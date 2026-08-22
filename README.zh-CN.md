@@ -127,11 +127,13 @@ StepFun 参考：
 
 | 工具 | 用途 |
 | --- | --- |
-| `analyze_bilibili_video` | 以 `language`、`vision` 或 `multimodal` 研究公开的 `bilibili.com` 或 `b23.tv` 链接 |
+| `analyze_bilibili_video` | 以 `language`、`vision` 或 `multimodal` 研究公开的 `bilibili.com` 或 `b23.tv` 链接，也可用 `start_seconds` 和 `end_seconds` 限定片段 |
 | `analyze_video` | 移除音轨后，对本地视频进行视觉检查 |
 | `inspect_video_window` | 对精确的静音源视频区间进行细节视觉研究 |
 
 长视频先粗看时使用 `media_detail: "low"`；需要辨认小型 UI 文本、代码、动作或近距离细节时用 `"default"`。
+
+如果已经知道要研究的时间段，可以同时传入 `start_seconds` 和 `end_seconds`。有字幕时会先筛选对应字幕区间；音频、视觉和多模态分析则会对下载后的视频先裁剪。显式指定片段后，会跳过长视频的自动粗扫流程。
 
 ## 数据与访问边界
 
