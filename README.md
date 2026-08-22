@@ -41,7 +41,9 @@ analyze_bilibili_video({
   question: "What quantitative research framework is shown on screen?",
   mode: "vision",
   media_detail: "default",
-  include_comments: false
+  include_comments: false,
+  start_seconds: 0,
+  end_seconds: 321
 })
 ```
 
@@ -65,6 +67,30 @@ ANALYSIS
 This matters when a repository name came from speech, a framework was recognized from
 an interface, or a popular comment made an unverified claim. The sources are not the
 same and should not be reported as if they were.
+
+## Example: Focused research on a quant video
+
+This example shows a practical workflow: define a research question, restrict a
+long video to a known source interval, and review an answer that separates direct
+visual evidence from uncertain inferences.
+
+### 1. Frame the research question
+
+<p align="center">
+  <img src="./assets/readme/example-request.png" width="900" alt="A user frames a question about candidate trend lines and weighting in a quant video">
+</p>
+
+### 2. Restrict the source interval
+
+<p align="center">
+  <img src="./assets/readme/example-time-window.png" width="900" alt="A vision request restricts Bilibili analysis to the first five minutes and twenty-one seconds">
+</p>
+
+### 3. Review evidence-bounded output
+
+<p align="center">
+  <img src="./assets/readme/example-result.png" width="900" alt="The vision result distinguishes visible candidate lines from unconfirmed scoring details">
+</p>
 
 ## Evidence flow
 
