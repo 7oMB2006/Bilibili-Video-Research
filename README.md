@@ -18,7 +18,8 @@
 Turn a Bilibili link into a research report that separates what came from public
 metadata, captions or ASR, video frames, and untrusted community context. Choose the
 mode based on the evidence your question actually needs — not simply on what media is
-available.
+available. For long videos, you can also provide a source-video time window so the
+research focuses on a selected interval instead of the entire recording.
 
 ## What it does
 
