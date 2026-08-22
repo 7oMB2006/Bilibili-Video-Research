@@ -157,9 +157,12 @@ Choose the StepFun base URL that matches your account channel:
 
 StepFun is the default because `step-3.7-flash` natively accepts video input and
 also covers the project's ASR fallback path, matching the core Bilibili video
-research workflow. This is a project-fit choice, not a claim that StepFun is
-best for every task. Step Plan remains available as an optional channel for
-accounts that have Step Plan Credit access.
+research workflow. The author has also used StepFun's multimodal models
+extensively and had a positive experience with them, so this project prioritizes
+StepFun integration and recommends it as the default provider. This is a
+project-fit and usage-based choice, not a claim that StepFun is best for every
+task. Step Plan remains available as an optional channel for accounts that have
+Step Plan Credit access, and you are welcome to try other capable providers.
 
 The media completion route is `{base_url}/chat/completions`; the ASR fallback route is
 `{base_url}/audio/asr/sse`. Do not mix a key from one channel with the other channel's
