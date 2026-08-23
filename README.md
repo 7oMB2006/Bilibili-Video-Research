@@ -203,8 +203,10 @@ Choose the StepFun base URL that matches your account channel:
 StepFun is the default because `step-3.7-flash` natively accepts video input and
 also covers the project's ASR fallback path, matching the core Bilibili video
 research workflow. The author has also used StepFun's multimodal models
-extensively and had a positive experience with them, so this project prioritizes
-StepFun integration and recommends it as the default provider. This is a
+extensively and had a positive experience with them (and, admittedly, there is a
+little personal bias too, ovo — before reliable multimodal models were readily
+available, StepFun helped carry me through much of that journey), so this project
+prioritizes StepFun integration and recommends it as the default provider. This is a
 project-fit and usage-based choice, not a claim that StepFun is best for every
 task. Step Plan remains available as an optional channel for accounts that have
 Step Plan Credit access, and you are welcome to try other capable providers.
