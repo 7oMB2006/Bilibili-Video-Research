@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="./assets/readme/hero.png" width="100%" alt="Bilibili Video Research：一个 Bilibili 链接经过语言、视觉或多模态证据处理，形成可追溯的研究报告">
+  <img src="./assets/readme/hero.zh-CN.svg" width="100%" alt="Bilibili 视频研究：一个 Bilibili 链接经过语言、视觉或多模态证据处理，形成可追溯的研究报告">
 </p>
 
 <p align="center">
@@ -88,7 +88,7 @@ ANALYSIS
 ## 证据流
 
 <p align="center">
-  <img src="./assets/readme/evidence-flow.svg" width="100%" alt="一个 Bilibili 视频分别产生语言、视觉或多模态证据，再形成带有溯源、时间戳和限制说明的研究报告">
+  <img src="./assets/readme/evidence-flow.zh-CN.svg" width="100%" alt="一个 Bilibili 视频分别产生 LANGUAGE（语言）、VISION（视觉）或 MULTIMODAL（多模态）证据，再形成带有溯源、时间戳和限制说明的研究报告">
 </p>
 
 - 公开元数据提供标题、上传者、简介、标签与视频标识符。
