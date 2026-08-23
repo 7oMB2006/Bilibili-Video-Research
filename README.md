@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  An evidence-aware Bilibili video research MCP for Codex.
+  An evidence-aware Bilibili video research MCP for Codex, OpenCode, and other MCP-compatible clients.
 </p>
 
 Turn a Bilibili link into a research report that separates what came from public
@@ -109,8 +109,8 @@ visual evidence from uncertain inferences.
 
 ## Quick start
 
-**Requirements:** Node.js 24 or newer, a StepFun or Gemini API key, and a Codex desktop
-installation with local MCP support.
+**Requirements:** Node.js 24 or newer, a StepFun or Gemini API key, and a Codex,
+OpenCode, or other MCP-compatible client with local MCP support.
 
 ```powershell
 git clone https://github.com/7oMB2006/Bilibili-Video-Research.git
@@ -123,7 +123,14 @@ Copy-Item .env.example .env
 Open `.env` and fill in one provider key. It is ignored by Git and must never be
 committed. The default configuration uses StepFun's official Open Platform API.
 
-## Codex MCP configuration (Windows)
+## Client configuration
+
+The server uses the same local stdio MCP transport in Codex and OpenCode. Only the
+client-side configuration syntax differs. The repository started from Codex, which
+is why the server name and examples use `codex_video`; the MCP itself is not
+Codex-only.
+
+### Codex (Windows)
 
 In `%USERPROFILE%\.codex\config.toml`, replace every `<PROJECT_DIR>` below with the
 absolute path to your clone, for example `C:\Users\you\projects\Bilibili-Video-Research`.
@@ -140,6 +147,44 @@ DOTENV_CONFIG_PATH = "<PROJECT_DIR>\\.env"
 
 Restart Codex after adding or changing the server. Keep provider keys in `.env` or a
 secret manager, never in `config.toml`.
+
+### OpenCode
+
+In the global `~/.config/opencode/opencode.json` or a project-level `opencode.json`,
+add the local MCP server. On Windows, `<PROJECT_DIR>` should be an absolute path.
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "codex_video": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "<PROJECT_DIR>\\node_modules\\.bin\\tsx.cmd",
+        "<PROJECT_DIR>\\src\\index.ts"
+      ],
+      "environment": {
+        "DOTENV_CONFIG_PATH": "<PROJECT_DIR>\\.env"
+      }
+    }
+  }
+}
+```
+
+Restart OpenCode after adding or changing the server. You can verify the connection
+with `opencode mcp list`. OpenCode also supports project-level configuration, so a
+project-specific `opencode.json` can keep this MCP setup close to the repository.
+
+The model selected in Codex or OpenCode is the client-side agent model. It does not
+change the media provider used inside this MCP. Set `CODEX_VIDEO_PROVIDER` and the
+provider keys in `.env` to control the models that receive video, image, or audio
+inputs.
+
+OpenCode references:
+
+- [MCP servers](https://opencode.ai/docs/mcp-servers/)
+- [Configuration](https://opencode.ai/docs/config/)
 
 ## Provider selection
 

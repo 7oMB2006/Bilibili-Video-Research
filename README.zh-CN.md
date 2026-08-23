@@ -13,7 +13,7 @@
 </p>
 
 <p align="center">
-  面向 Codex、具备证据边界意识的 Bilibili 视频研究 MCP。
+  面向 Codex、OpenCode 及其他兼容 MCP 客户端，具备证据边界意识的 Bilibili 视频研究 MCP。
 </p>
 
 将 Bilibili 链接转成研究报告，并明确区分公开元数据、字幕或 ASR、视频画面，以及不受信任的社区上下文。根据问题真正需要的证据选择模式，而不是因为视频有某种媒介就一股脑全用。
@@ -98,7 +98,7 @@ ANALYSIS
 
 ## 快速开始
 
-**要求：** Node.js 24 或更新版本、StepFun 或 Gemini API Key，以及支持本地 MCP 的 Codex desktop。
+**要求：** Node.js 24 或更新版本、StepFun 或 Gemini API Key，以及支持本地 MCP 的 Codex、OpenCode 或其他兼容 MCP 客户端。
 
 ```powershell
 git clone https://github.com/7oMB2006/Bilibili-Video-Research.git
@@ -110,7 +110,13 @@ Copy-Item .env.example .env
 
 打开 `.env` 并填入一个提供商的 Key。该文件被 Git 忽略，绝不能提交。默认配置使用 StepFun 官方开放平台 API。
 
-## Codex MCP 配置（Windows）
+## 客户端配置
+
+服务器在 Codex 和 OpenCode 中使用相同的本地 stdio MCP 传输方式，区别只在
+客户端配置语法。项目最初从 Codex 开始，因此服务器名称和示例使用
+`codex_video`；但这个 MCP 本身并不只面向 Codex。
+
+### Codex（Windows）
 
 在 `%USERPROFILE%\.codex\config.toml` 中，将下方每个 `<PROJECT_DIR>` 替换为仓库克隆目录的绝对路径，例如 `C:\Users\you\projects\Bilibili-Video-Research`。
 
@@ -125,6 +131,38 @@ DOTENV_CONFIG_PATH = "<PROJECT_DIR>\\.env"
 ```
 
 新增或修改服务器配置后，请重启 Codex。Key 请保存在 `.env` 或密钥管理器里，不要写入 `config.toml`。
+
+### OpenCode
+
+在全局配置 `~/.config/opencode/opencode.json` 或项目级 `opencode.json` 中添加本地 MCP。Windows 下的 `<PROJECT_DIR>` 应填写仓库克隆目录的绝对路径。
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "codex_video": {
+      "type": "local",
+      "enabled": true,
+      "command": [
+        "<PROJECT_DIR>\\node_modules\\.bin\\tsx.cmd",
+        "<PROJECT_DIR>\\src\\index.ts"
+      ],
+      "environment": {
+        "DOTENV_CONFIG_PATH": "<PROJECT_DIR>\\.env"
+      }
+    }
+  }
+}
+```
+
+新增或修改服务器配置后，请重启 OpenCode。可以运行 `opencode mcp list` 验证连接状态。OpenCode 也支持项目级配置，因此可以将特定于项目的 MCP 设置放在仓库附近的 `opencode.json` 中。
+
+Codex 或 OpenCode 中选择的模型，是客户端侧的代理模型；它不会改变这个 MCP 内部使用的媒体提供商。在 `.env` 中设置 `CODEX_VIDEO_PROVIDER` 和对应的 Provider Key，才能控制实际接收视频、图像或音频输入的模型。
+
+OpenCode 参考：
+
+- [MCP 服务器](https://opencode.ai/docs/zh-cn/mcp-servers/)
+- [配置](https://opencode.ai/docs/zh-cn/config/)
 
 ## 提供商选择
 
