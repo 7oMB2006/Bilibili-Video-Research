@@ -228,6 +228,14 @@ async function analyzeMediaWithStepfun(mediaPath: string, prompt: string): Promi
     const transcript = await transcribeAudioWithStepfun(mediaPath, sourceMimeType);
     return analyzeTextWithStepfun(`${prompt}\n\nASR TRANSCRIPT (language evidence):\n${transcript}`);
   }
+  if (stepfunBaseUrl().toLowerCase().includes("step_plan")) {
+    const bytes = await fs.readFile(mediaPath);
+    const dataUrl = `data:${sourceMimeType};base64,${bytes.toString("base64")}`;
+    return analyzeContentWithStepfun([
+      { type: "video_url", video_url: { url: dataUrl } },
+      { type: "text", text: prompt },
+    ]);
+  }
   const bytes = await fs.readFile(mediaPath);
   const mimeType = sourceMimeType;
   const form = new FormData();
