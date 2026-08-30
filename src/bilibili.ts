@@ -61,6 +61,7 @@ export function validateBilibiliWindow(durationSeconds: number, startSeconds?: n
 
 interface EvidenceProvenance {
   mode: ResearchMode;
+  analysis: "complete" | "unavailable";
   metadata: "bilibili_api";
   language: "bilibili_caption" | "stepfun_asr" | "none";
   visual: "silent_video" | "windowed_silent_video" | "original_video" | "windowed_original_video" | "none";
@@ -328,6 +329,7 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
   const context = formatContext(video, comments.displayed);
   const provenance: EvidenceProvenance = {
     mode: request.mode,
+    analysis: "complete",
     metadata: "bilibili_api",
     language: "none",
     visual: request.mode === "vision"
@@ -346,59 +348,73 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
     analysis,
   ].join("\n");
 
-  if (request.mode === "language") {
-    const captions = await getCaptionText(video, startSeconds, endSeconds);
-    if (captions) return finish(await analyzeTextWithGemini(languagePrompt(context, request.question, captions.text)), {
-      language: "bilibili_caption",
-      timestamps: captions.hasTimestamps ? "caption_cues" : "none",
-    });
+  const finishUnavailable = (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    return finish([
+      `Media analysis unavailable: ${message.slice(0, 500)}`,
+      "",
+      "The Bilibili metadata and available community context remain usable:",
+      context,
+    ].join("\n"), { analysis: "unavailable" });
+  };
+
+  try {
+    if (request.mode === "language") {
+      const captions = await getCaptionText(video, startSeconds, endSeconds);
+      if (captions) return finish(await analyzeTextWithGemini(languagePrompt(context, request.question, captions.text)), {
+        language: "bilibili_caption",
+        timestamps: captions.hasTimestamps ? "caption_cues" : "none",
+      });
+
+      const directory = await fs.mkdtemp(path.join(process.env.TEMP ?? process.cwd(), "codex-video-mcp-"));
+      try {
+        const source = await downloadVideo(request.url, directory);
+        const sourceWindow = hasWindow ? await createVideoWindow(source, startSeconds, endSeconds) : undefined;
+        try {
+          const audio = await createAudioTrack(sourceWindow?.clipPath ?? source);
+          try {
+            return finish(await analyzeMediaWithGemini(audio.audioPath, languagePrompt(context, request.question, "No Bilibili captions were available. Transcribe the supplied audio."), request.mediaDetail), {
+              language: "stepfun_asr",
+              timestamps: "none",
+            });
+          } finally {
+            await removeTemporaryWindow(audio.directory);
+          }
+        } finally {
+          if (sourceWindow) await removeTemporaryWindow(sourceWindow.directory);
+        }
+      } finally {
+        await fs.rm(directory, { recursive: true, force: true });
+      }
+    }
 
     const directory = await fs.mkdtemp(path.join(process.env.TEMP ?? process.cwd(), "codex-video-mcp-"));
     try {
       const source = await downloadVideo(request.url, directory);
+      if (request.mode === "vision") {
+        if (!hasWindow && video.durationSeconds >= LONG_VIDEO_THRESHOLD_SECONDS) {
+          return finish(await analyzeLongVisionVideo(source, video.durationSeconds, context, request.question, request.mediaDetail));
+        }
+        const silent = hasWindow
+          ? await createSilentWindow(source, startSeconds, endSeconds)
+          : await createSilentVideo(source);
+        try {
+          const silentPath = "clipPath" in silent ? silent.clipPath : silent.videoPath;
+          return finish(await analyzeMediaWithGemini(silentPath, visionPrompt(context, request.question, startSeconds, endSeconds), request.mediaDetail));
+        } finally {
+          await removeTemporaryWindow(silent.directory);
+        }
+      }
       const sourceWindow = hasWindow ? await createVideoWindow(source, startSeconds, endSeconds) : undefined;
       try {
-        const audio = await createAudioTrack(sourceWindow?.clipPath ?? source);
-        try {
-          return finish(await analyzeMediaWithGemini(audio.audioPath, languagePrompt(context, request.question, "No Bilibili captions were available. Transcribe the supplied audio."), request.mediaDetail), {
-            language: "stepfun_asr",
-            timestamps: "none",
-          });
-        } finally {
-          await removeTemporaryWindow(audio.directory);
-        }
+        return finish(await analyzeMediaWithGemini(sourceWindow?.clipPath ?? source, multimodalPrompt(context, request.question, startSeconds, endSeconds), request.mediaDetail));
       } finally {
         if (sourceWindow) await removeTemporaryWindow(sourceWindow.directory);
       }
     } finally {
       await fs.rm(directory, { recursive: true, force: true });
     }
-  }
-
-  const directory = await fs.mkdtemp(path.join(process.env.TEMP ?? process.cwd(), "codex-video-mcp-"));
-  try {
-    const source = await downloadVideo(request.url, directory);
-    if (request.mode === "vision") {
-      if (!hasWindow && video.durationSeconds >= LONG_VIDEO_THRESHOLD_SECONDS) {
-        return finish(await analyzeLongVisionVideo(source, video.durationSeconds, context, request.question, request.mediaDetail));
-      }
-      const silent = hasWindow
-        ? await createSilentWindow(source, startSeconds, endSeconds)
-        : await createSilentVideo(source);
-      try {
-        const silentPath = "clipPath" in silent ? silent.clipPath : silent.videoPath;
-        return finish(await analyzeMediaWithGemini(silentPath, visionPrompt(context, request.question, startSeconds, endSeconds), request.mediaDetail));
-      } finally {
-        await removeTemporaryWindow(silent.directory);
-      }
-    }
-    const sourceWindow = hasWindow ? await createVideoWindow(source, startSeconds, endSeconds) : undefined;
-    try {
-      return finish(await analyzeMediaWithGemini(sourceWindow?.clipPath ?? source, multimodalPrompt(context, request.question, startSeconds, endSeconds), request.mediaDetail));
-    } finally {
-      if (sourceWindow) await removeTemporaryWindow(sourceWindow.directory);
-    }
-  } finally {
-    await fs.rm(directory, { recursive: true, force: true });
+  } catch (error) {
+    return finishUnavailable(error);
   }
 }
