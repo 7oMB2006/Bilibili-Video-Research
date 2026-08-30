@@ -14,7 +14,7 @@ const SUPPORTED_VIDEO_EXTENSIONS = new Set([".mp4", ".mov", ".avi", ".mkv", ".we
 const SUPPORTED_MEDIA_EXTENSIONS = new Set([...SUPPORTED_VIDEO_EXTENSIONS, ".m4a", ".mp3", ".wav", ".aac", ".ogg"]);
 
 export type MediaDetail = "low" | "default";
-export type VideoProvider = "gemini" | "stepfun";
+export type VideoProvider = "gemini" | "stepfun" | "glm_official" | "glm_openrouter";
 
 export interface AnalysisRequest {
   videoPath: string;
@@ -26,8 +26,8 @@ export interface AnalysisRequest {
 
 function selectedProvider(): VideoProvider {
   const value = (process.env.CODEX_VIDEO_PROVIDER ?? "gemini").toLowerCase();
-  if (value === "gemini" || value === "stepfun") return value;
-  throw new Error("CODEX_VIDEO_PROVIDER must be gemini or stepfun. MiniMax has no documented video-input understanding API.");
+  if (value === "gemini" || value === "stepfun" || value === "glm_official" || value === "glm_openrouter") return value;
+  throw new Error("CODEX_VIDEO_PROVIDER must be gemini, stepfun, glm_official, or glm_openrouter. MiniMax has no documented video-input understanding API.");
 }
 
 function mediaMimeType(mediaPath: string): string {
@@ -160,7 +160,9 @@ export async function createAudioTrack(videoPath: string): Promise<{ directory: 
 
 export async function analyzeMediaWithProvider(mediaPath: string, prompt: string, mediaDetail: MediaDetail = "default"): Promise<string> {
   await assertReadableMedia(mediaPath);
-  if (selectedProvider() === "stepfun") return analyzeMediaWithStepfun(mediaPath, prompt);
+  const provider = selectedProvider();
+  if (provider === "stepfun") return analyzeMediaWithStepfun(mediaPath, prompt);
+  if (provider === "glm_official" || provider === "glm_openrouter") return analyzeMediaWithGlm(mediaPath, prompt, provider);
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not configured for codex-video-mcp.");
@@ -226,14 +228,6 @@ async function analyzeMediaWithStepfun(mediaPath: string, prompt: string): Promi
     const transcript = await transcribeAudioWithStepfun(mediaPath, sourceMimeType);
     return analyzeTextWithStepfun(`${prompt}\n\nASR TRANSCRIPT (language evidence):\n${transcript}`);
   }
-  if (stepfunBaseUrl().includes("step_plan")) {
-    const bytes = await fs.readFile(mediaPath);
-    const dataUrl = `data:${sourceMimeType};base64,${bytes.toString("base64")}`;
-    return analyzeContentWithStepfun([
-      { type: "video_url", video_url: { url: dataUrl } },
-      { type: "text", text: prompt },
-    ]);
-  }
   const bytes = await fs.readFile(mediaPath);
   const mimeType = sourceMimeType;
   const form = new FormData();
@@ -268,6 +262,73 @@ async function analyzeContentWithStepfun(content: unknown[]): Promise<string> {
   return text;
 }
 
+type GlmProvider = "glm_official" | "glm_openrouter";
+
+function glmBaseUrl(provider: GlmProvider): string {
+  const configured = (provider === "glm_official" ? process.env.GLM_OFFICIAL_BASE_URL : process.env.OPENROUTER_BASE_URL)?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
+  return provider === "glm_official" ? "https://api.z.ai/api/paas/v4" : "https://openrouter.ai/api/v1";
+}
+
+function glmApiKey(provider: GlmProvider): string {
+  const key = provider === "glm_official" ? process.env.GLM_OFFICIAL_API_KEY : process.env.OPENROUTER_API_KEY;
+  if (!key?.trim()) {
+    throw new Error(`${provider === "glm_official" ? "GLM_OFFICIAL_API_KEY" : "OPENROUTER_API_KEY"} is not configured for codex-video-mcp.`);
+  }
+  return key.trim();
+}
+
+function glmModel(provider: GlmProvider): string {
+  return (provider === "glm_official" ? process.env.GLM_OFFICIAL_VIDEO_MODEL : process.env.OPENROUTER_VIDEO_MODEL)?.trim()
+    || (provider === "glm_official" ? "glm-5.3-flash" : "z-ai/glm-5.3-flash");
+}
+
+async function glmRequest(provider: GlmProvider, init: RequestInit): Promise<Response> {
+  const response = await fetch(`${glmBaseUrl(provider)}/chat/completions`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${glmApiKey(provider)}`,
+      ...(init.headers ?? {}),
+    },
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`${provider === "glm_official" ? "Z.ai" : "OpenRouter"} API request failed (${response.status}): ${body.slice(0, 500)}`);
+  }
+  return response;
+}
+
+async function analyzeContentWithGlm(provider: GlmProvider, content: unknown[]): Promise<string> {
+  const completion = await glmRequest(provider, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: glmModel(provider),
+      messages: [{ role: "user", content }],
+      temperature: 1,
+      top_p: 0.95,
+      reasoning_effort: "max",
+    }),
+  });
+  const result = await completion.json() as { choices?: Array<{ message?: { content?: string | Array<{ text?: string }> } }> };
+  const contentValue = result.choices?.[0]?.message?.content;
+  const text = typeof contentValue === "string" ? contentValue : contentValue?.map((part) => part.text ?? "").join("");
+  if (!text?.trim()) throw new Error(`${provider === "glm_official" ? "Z.ai" : "OpenRouter"} returned no text response for this media.`);
+  return text;
+}
+
+async function analyzeMediaWithGlm(mediaPath: string, prompt: string, provider: GlmProvider): Promise<string> {
+  const sourceMimeType = mediaMimeType(mediaPath);
+  if (sourceMimeType.startsWith("audio/")) {
+    throw new Error("GLM-5.3-Flash video adapters do not transcribe standalone audio. Use Bilibili captions or select StepFun/Gemini for ASR fallback.");
+  }
+  const bytes = await fs.readFile(mediaPath);
+  const dataUrl = `data:${sourceMimeType};base64,${bytes.toString("base64")}`;
+  return analyzeContentWithGlm(provider, [
+    { type: "video_url", video_url: { url: dataUrl } },
+    { type: "text", text: prompt },
+  ]);
+}
 async function transcribeAudioWithStepfun(audioPath: string, mimeType: string): Promise<string> {
   const bytes = await fs.readFile(audioPath);
   const response = await stepfunRequest("/audio/asr/sse", {
@@ -314,7 +375,9 @@ async function transcribeAudioWithStepfun(audioPath: string, mimeType: string): 
 export { transcribeAudioWithStepfun };
 
 export async function analyzeTextWithProvider(prompt: string): Promise<string> {
-  if (selectedProvider() === "stepfun") return analyzeTextWithStepfun(prompt);
+  const provider = selectedProvider();
+  if (provider === "stepfun") return analyzeTextWithStepfun(prompt);
+  if (provider === "glm_official" || provider === "glm_openrouter") return analyzeTextWithGlmText(provider, prompt);
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not configured for codex-video-mcp.");
@@ -330,6 +393,23 @@ export async function analyzeTextWithProvider(prompt: string): Promise<string> {
   return response.text;
 }
 
+async function analyzeTextWithGlmText(provider: GlmProvider, prompt: string): Promise<string> {
+  const completion = await glmRequest(provider, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: glmModel(provider),
+      messages: [{ role: "user", content: prompt }],
+      temperature: 1,
+      top_p: 0.95,
+      reasoning_effort: "max",
+    }),
+  });
+  const result = await completion.json() as { choices?: Array<{ message?: { content?: string } }> };
+  const text = result.choices?.[0]?.message?.content;
+  if (!text?.trim()) throw new Error(`${provider === "glm_official" ? "Z.ai" : "OpenRouter"} returned no text response.`);
+  return text;
+}
 async function analyzeTextWithStepfun(prompt: string): Promise<string> {
   const completion = await stepfunRequest("/chat/completions", {
     method: "POST",

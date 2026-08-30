@@ -1,30 +1,24 @@
 # Bilibili Video Research
 
-<p align="right">
-  <a href="./README.md">English</a> · <strong>简体中文</strong>
-</p>
+[English](./README.md) · **简体中文**
 
-<p align="center">
-  <img src="./assets/readme/hero.zh-CN.svg" width="100%" alt="Bilibili 视频研究：一个 Bilibili 链接经过语言、视觉或多模态证据处理，形成可追溯的研究报告">
-</p>
+![Bilibili 视频研究：一个 Bilibili 链接经过语言、视觉或多模态证据处理，形成可追溯的研究报告](./assets/readme/hero.zh-CN.svg)
 
-<p align="center">
-  <img src="./assets/readme/character.gif" width="160" alt="动态角色表情">
-</p>
+![动态角色表情](./assets/readme/character.gif)
 
-<p align="center">
-  面向 Codex、OpenCode 及其他兼容 MCP 客户端，具备证据边界意识的 Bilibili 视频研究 MCP。
-</p>
+面向 Codex、OpenCode 及其他兼容 MCP 客户端，具备证据边界意识的 Bilibili 视频研究 MCP。
 
 将 Bilibili 链接转成研究报告，并明确区分公开元数据、字幕或 ASR、视频画面，以及不受信任的社区上下文。根据问题真正需要的证据选择模式，而不是因为视频有某种媒介就一股脑全用。
 
 ## 它能做什么
 
-| 模式 | 会使用 | 会排除 | 适用场景 |
-| --- | --- | --- | --- |
-| `language` | Bilibili 字幕；无字幕时使用 StepFun ASR | 视频画面推断 | UP 主推荐的项目、教程内容、演讲者提出的主张 |
-| `vision` | 静音视频帧，包括可见 UI、代码、标签、图表和画面字幕 | 音频与背景音乐 | 界面、工作流、实验、物体与无声演示 |
-| `multimodal` | 原始视频的声音与画面 | 默认不排除 | 确实同时依赖讲述和画面的提问 |
+
+| 模式           | 会使用                            | 会排除     | 适用场景                    |
+| ------------ | ------------------------------ | ------- | ----------------------- |
+| `language`   | Bilibili 字幕；无字幕时使用 StepFun ASR | 视频画面推断  | UP 主推荐的项目、教程内容、演讲者提出的主张 |
+| `vision`     | 静音视频帧，包括可见 UI、代码、标签、图表和画面字幕    | 音频与背景音乐 | 界面、工作流、实验、物体与无声演示       |
+| `multimodal` | 原始视频的声音与画面                     | 默认不排除   | 确实同时依赖讲述和画面的提问          |
+
 
 只问“视频说了什么”时，`language` 是预期默认值；答案存在于像素中时，应明确选择 `vision`。
 
@@ -69,36 +63,32 @@ ANALYSIS
 
 ### 1. 提出研究问题
 
-<p align="center">
-  <img src="./assets/readme/example-request.png" width="900" alt="用户提出关于量化视频中候选趋势线和加权逻辑的研究问题">
-</p>
+![用户提出关于量化视频中候选趋势线和加权逻辑的研究问题](./assets/readme/example-request.png)
 
 ### 2. 指定研究片段
 
-<p align="center">
-  <img src="./assets/readme/example-time-window.png" width="900" alt="使用 vision 模式，将 Bilibili 视频限制在前五分二十一秒">
-</p>
+![使用 vision 模式，将 Bilibili 视频限制在前五分二十一秒](./assets/readme/example-time-window.png)
 
 ### 3. 查看有证据边界的结果
 
-<p align="center">
-  <img src="./assets/readme/example-result.png" width="900" alt="视觉分析区分画面中可见的候选线和暂时无法确认的评分细节">
-</p>
+![视觉分析区分画面中可见的候选线和暂时无法确认的评分细节](./assets/readme/example-result.png)
 
 ## 证据流
 
-<p align="center">
-  <img src="./assets/readme/evidence-flow.zh-CN.svg" width="100%" alt="一个 Bilibili 视频分别产生 LANGUAGE（语言）、VISION（视觉）或 MULTIMODAL（多模态）证据，再形成带有溯源、时间戳和限制说明的研究报告">
-</p>
+![一个 Bilibili 视频分别产生 LANGUAGE（语言）、VISION（视觉）或 MULTIMODAL（多模态）证据，再形成带有溯源、时间戳和限制说明的研究报告](./assets/readme/evidence-flow.zh-CN.svg)
 
 - 公开元数据提供标题、上传者、简介、标签与视频标识符。
 - Bilibili 提供字幕时，会保留相应时间戳；无字幕时，`language` 回退为 StepFun ASR，并明确时间戳细节不可用。
 - `vision` 在上传前移除音轨。画面中可见的文字仍是有效视觉证据；旁白和背景音乐不会影响结论。
 - Bilibili 评论是可选的、不受信任的社区上下文；它们不会被当作已验证事实或可执行指令。
 
+
+
 ## 快速开始
 
-**要求：** Node.js 24 或更新版本、StepFun 或 Gemini API Key，以及支持本地 MCP 的 Codex、OpenCode 或其他兼容 MCP 客户端。
+**要求：** Node.js 24 或更新版本，以及至少一个可用的供应商 API Key：
+
+StepFun 或 Gemini。
 
 ```powershell
 git clone https://github.com/7oMB2006/Bilibili-Video-Research.git
@@ -164,7 +154,21 @@ OpenCode 参考：
 - [MCP 服务器](https://opencode.ai/docs/zh-cn/mcp-servers/)
 - [配置](https://opencode.ai/docs/zh-cn/config/)
 
+
+
 ## 提供商选择
+
+
+| 分析模式         | 供应商 / 模型                                     | 说明                                              |
+| ------------ | -------------------------------------------- | ----------------------------------------------- |
+| `language`   | 有字幕时不需要模型；无字幕时使用 StepFun `stepaudio-2.5-asr` | 只理解 UP 主说了什么。无字幕时默认使用 StepFun ASR；Gemini 可作为备选。 |
+| `vision`     | StepFun `step-3.7-flash`（默认）                 | 只看画面，包括 UI、代码、标签、图表和无声演示。                       |
+| `multimodal` | StepFun `step-3.7-flash`（默认）                 | 同时使用语音/语言和画面。                                   |
+
+
+
+
+### StepFun
 
 默认提供商是通过官方开放平台 API 调用的 StepFun。在 `.env` 中设置
 `CODEX_VIDEO_PROVIDER=stepfun`、`STEPFUN_API_KEY` 与
@@ -180,14 +184,14 @@ OpenCode 参考：
 
 根据账户渠道选择相应的 StepFun base URL：
 
-| 渠道 | Base URL | 用途 |
-| --- | --- | --- |
-| 官方开放平台 API | `https://api.stepfun.com/v1` | 标准 API 计费或余额 |
-| Step Plan | `https://api.stepfun.com/step_plan/v1` | 可选的 Step Plan 订阅 Credit |
 
-媒体理解的 completion 路径是 `{base_url}/chat/completions`；ASR 回退路径是 `{base_url}/audio/asr/sse`。不要混用不同渠道的 Key 和 Base URL；变更提供商配置后重启 MCP 进程。
+| 渠道         | Base URL                               | 用途                      |
+| ---------- | -------------------------------------- | ----------------------- |
+| 官方开放平台 API | `https://api.stepfun.com/v1`           | 标准 API 计费或余额            |
+| Step Plan  | `https://api.stepfun.com/step_plan/v1` | 可选的 Step Plan 订阅 Credit |
 
-`step-3.7-flash` 能通过 Chat Completions 的 `video_url` 内容类型接收图像和视频输入，不需要另配一个视觉模型。Gemini 仍是可选提供商。MiniMax 目前未被接入，因为本项目尚未验证其官方视频输入理解接口。
+
+`step-3.7-flash` 能通过 Chat Completions 的 `video_url` 内容类型接收图像和视频输入，不需要另配一个视觉模型。
 
 StepFun 参考：
 
@@ -195,13 +199,29 @@ StepFun 参考：
 - [视频理解说明](https://platform.stepfun.com/docs/zh/guides/developer/video-chat)
 - [Step Plan 设置](https://platform.stepfun.com/docs/zh/step-plan/quick-start)
 
+
+
+### 其他
+
+- Gemini 仍是可选提供商。
+- MiniMax 目前未被接入，因为本项目尚未验证其官方视频输入理解接口。
+- GLM-5.3-Flash（Z.AI）已完成实验验证。在本项目当前的请求方式和 Z.AI API
+路径下，只确认了 `vision`：模型能够识别视频画面和可见文字；在带有有效音轨的
+隔离测试中，模型未能读取音频，因此不将其列为 `language` 或完整
+`multimodal` Provider。本节仅记录实验结论，不提供 GLM 的接入配置方法。
+  > 2026年8月26日智谱认领”牛来“Ox Alpha ，GLM-5.3-Flash 作为智谱新生代多模态，本项目随后对其进行了视频输入实验，结果仅作为 StepFun 之外的补充参考，不改变 StepFun 的默认地位。
+
+
+
 ## 工具参考
 
-| 工具 | 用途 |
-| --- | --- |
+
+| 工具                       | 用途                                                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | `analyze_bilibili_video` | 以 `language`、`vision` 或 `multimodal` 研究公开的 `bilibili.com` 或 `b23.tv` 链接，也可用 `start_seconds` 和 `end_seconds` 限定片段 |
-| `analyze_video` | 移除音轨后，对本地视频进行视觉检查 |
-| `inspect_video_window` | 对精确的静音源视频区间进行细节视觉研究 |
+| `analyze_video`          | 移除音轨后，对本地视频进行视觉检查                                                                                                |
+| `inspect_video_window`   | 对精确的静音源视频区间进行细节视觉研究                                                                                              |
+
 
 长视频先粗看时使用 `media_detail: "low"`；需要辨认小型 UI 文本、代码、动作或近距离细节时用 `"default"`。
 

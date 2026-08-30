@@ -24,9 +24,9 @@ available.
 
 | Mode | Uses | Excludes | Best for |
 | --- | --- | --- | --- |
-| `language` | Bilibili captions; StepFun ASR only when captions are unavailable | Video-frame inference | Project recommendations, tutorials, and claims made by the presenter |
-| `vision` | Silent video frames, including visible UI, code, labels, charts, and on-screen subtitles | Audio and background music | Interfaces, workflows, experiments, objects, and silent demonstrations |
-| `multimodal` | Original video audio and frames | Nothing by default | Questions that genuinely require both narration and what is shown |
+| `language` | No model when captions are available; StepFun `stepaudio-2.5-asr` when they are not | Video-frame inference | Project recommendations, tutorials, and claims made by the presenter |
+| `vision` | StepFun `step-3.7-flash` by default | Audio and background music | Interfaces, workflows, experiments, objects, and silent demonstrations |
+| `multimodal` | StepFun `step-3.7-flash` by default | Nothing by default | Questions that genuinely require both narration and what is shown |
 
 `language` is the intended default when a request only asks what a video says.
 `vision` is the deliberate choice when the answer lives in the pixels.
@@ -188,6 +188,8 @@ OpenCode references:
 
 ## Provider selection
 
+### Step 3.7 Flash
+
 The default provider is StepFun through the official Open Platform API. Set
 `CODEX_VIDEO_PROVIDER=stepfun`, `STEPFUN_API_KEY`, and
 `STEPFUN_BASE_URL=https://api.stepfun.com/v1` in `.env`. To use Gemini instead,
@@ -211,14 +213,22 @@ project-fit and usage-based choice, not a claim that StepFun is best for every
 task. Step Plan remains available as an optional channel for accounts that have
 Step Plan Credit access, and you are welcome to try other capable providers.
 
-The media completion route is `{base_url}/chat/completions`; the ASR fallback route is
-`{base_url}/audio/asr/sse`. Do not mix a key from one channel with the other channel's
-base URL. Restart the MCP process after changing provider configuration.
+### Other
 
-`step-3.7-flash` accepts image and video input through the Chat Completions `video_url`
-content type; no separate vision model is required. Gemini remains optional. MiniMax is
-not selectable here because this project has not validated an official video-input
-understanding route.
+- Gemini remains an optional provider.
+- MiniMax is not integrated because this project has not validated an official
+  video-input understanding route.
+- GLM-5.3-Flash (Z.AI) has been evaluated experimentally. With the request shape and
+  Z.AI API path used by this project, only `vision` has been confirmed: the model can
+  identify video frames and visible text. In an isolation test with a valid audio track,
+  it did not read the audio, so it is not listed as a `language` or full `multimodal`
+  provider. This section records the experiment only; it does not provide GLM setup
+  instructions.
+
+  > On August 26, 2026, Zhipu claimed “Ox Alpha”. GLM-5.3-Flash, as Zhipu's
+  > new-generation multimodal model, was subsequently tested by this project. The
+  > result is only a supplementary reference alongside StepFun and does not change
+  > StepFun's default status.
 
 StepFun references:
 
