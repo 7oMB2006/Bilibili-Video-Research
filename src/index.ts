@@ -78,13 +78,13 @@ server.registerTool("inspect_video_window", {
 
 server.registerTool("analyze_bilibili_video", {
   title: "Research a Bilibili Video",
-  description: "Resolves a public Bilibili URL, attaches public metadata, and optionally samples 20 most-liked root comments while displaying only 3 hot comments plus up to 2 distinct high-signal comments. Supports language-only, visual-only, and multimodal research.",
+  description: "Resolves a public Bilibili URL, always returns public metadata and an explicit community-context status, and optionally samples 20 most-liked root comments while displaying only 3 hot comments plus up to 2 distinct high-signal comments. Supports language-only, visual-only, and multimodal research.",
   inputSchema: {
     url: z.string().url().describe("Public Bilibili video URL, including b23.tv short URLs."),
     question: z.string().min(3).describe("The research question."),
     mode: z.enum(["language", "vision", "multimodal"]).describe("language: captions then audio only; vision: silent video only; multimodal: original video with both channels."),
     media_detail: z.enum(["low", "default"]).default("default").describe("Use low for a broad long-video pass and default for close inspection."),
-    include_comments: z.boolean().default(true).describe("Attach untrusted community context. Fetches at most 20 most-liked root comments but presents only 3-5 representative comments."),
+    include_comments: z.boolean().default(true).describe("Include untrusted community context. Fetches at most 20 most-liked root comments, presents only 3-5 representative comments, and reports empty or fetch-failed status explicitly."),
     start_seconds: z.number().min(0).optional().describe("Optional source-video interval start in seconds. Provide together with end_seconds."),
     end_seconds: z.number().positive().optional().describe("Optional source-video interval end in seconds. Provide together with start_seconds."),
   },
