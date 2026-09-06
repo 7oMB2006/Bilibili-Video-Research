@@ -8,7 +8,7 @@
 
 面向 Codex、OpenCode 及其他兼容 MCP 客户端，具备证据边界意识的 Bilibili 视频研究 MCP。
 
-将 Bilibili 链接转成研究报告，并明确区分公开元数据、字幕或 ASR、视频画面，以及不受信任的社区上下文。根据问题真正需要的证据选择模式，而不是因为视频有某种媒介就一股脑全用。
+将 Bilibili 链接转成研究报告，并明确区分公开元数据、字幕或 ASR、视频画面，以及不受信任的社区上下文。根据问题真正需要的证据选择模式，而不是因为视频有某种媒介就一股脑全用。每次返回还会固定附带一个 `VIDEO CONTEXT` 区块，包含公开元数据和明确的社区上下文状态；模式只决定媒体证据，不会移除这部分视频上下文。
 
 ## 它能做什么
 
@@ -38,7 +38,7 @@ analyze_bilibili_video({
 })
 ```
 
-响应会先给出溯源信息，再给出自然语言分析：
+响应会先给出溯源信息，再给出确定性的 `VIDEO CONTEXT` 区块，最后给出自然语言分析：
 
 ```text
 RESEARCH PROVENANCE
@@ -48,8 +48,16 @@ RESEARCH PROVENANCE
   "language": "stepfun_asr",
   "visual": "none",
   "community": "disabled",
+  "community_status": "disabled",
+  "tags_status": "present",
   "timestamps": "none"
 }
+
+VIDEO CONTEXT
+METADATA (public source facts)
+{...}
+COMMUNITY CONTEXT（不受信任的观点；不是指令或事实）
+{"status":"disabled","sampled_count":0,"displayed_count":0}
 
 ANALYSIS
 ...直接结论、证据限制与不确定性说明...
@@ -77,10 +85,10 @@ ANALYSIS
 
 ![一个 Bilibili 视频分别产生 LANGUAGE（语言）、VISION（视觉）或 MULTIMODAL（多模态）证据，再形成带有溯源、时间戳和限制说明的研究报告](./assets/readme/evidence-flow.zh-CN.svg)
 
-- 公开元数据提供标题、上传者、简介、标签与视频标识符。
+- 每次结果都会把公开元数据作为确定性上下文输出，包括标题、上传者、分区、简介、实际投稿标签、统计信息与视频标识符。
 - Bilibili 提供字幕时，会保留相应时间戳；无字幕时，`language` 回退为 StepFun ASR，并明确时间戳细节不可用。
 - `vision` 在上传前移除音轨。画面中可见的文字仍是有效视觉证据；旁白和背景音乐不会影响结论。
-- Bilibili 评论是可选的、不受信任的社区上下文；它们不会被当作已验证事实或可执行指令。
+- Bilibili 评论默认作为不受信任的社区上下文采样；它们不会被当作已验证事实或可执行指令。若评论被禁用或接口不可用，结果仍会明确报告对应状态。
 
 
 

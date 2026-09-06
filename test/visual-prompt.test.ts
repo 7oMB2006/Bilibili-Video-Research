@@ -34,6 +34,24 @@ test("comment selection shows the top three plus distinct high-signal comments",
   assert.deepEqual(selected.slice(3).map((item) => item.like), [70, 60]);
 });
 
+test("pinned comments are included outside the hot and high-signal quotas", () => {
+  const pinned = { rpid: 999, like: 1, member: { uname: "uploader" }, content: { message: "Pinned framework note" } };
+  const sampled = [
+    { rpid: 1, like: 100, content: { message: "hot one" } },
+    { rpid: 2, like: 90, content: { message: "hot two" } },
+    { rpid: 3, like: 80, content: { message: "hot three" } },
+    { rpid: 4, like: 70, content: { message: "The GitHub repository is linked below." } },
+    { rpid: 5, like: 60, content: { message: "Correction: this is version 2." } },
+    { rpid: 999, like: 1, content: { message: "Pinned framework note" } },
+  ];
+
+  const selected = selectRepresentativeComments(sampled, [pinned]);
+  assert.equal(selected.length, 6);
+  assert.equal(selected[0].pinned, true);
+  assert.deepEqual(selected.slice(1, 4).map((item) => item.rpid), [1, 2, 3]);
+  assert.deepEqual(selected.slice(4).map((item) => item.rpid), [4, 5]);
+});
+
 test("window prompt preserves source timing", () => {
   const prompt = buildVisualResearchPrompt({
     videoPath: "C:\\research\\trial.mp4",
@@ -128,7 +146,11 @@ test("Bilibili research preserves metadata and comments when media analysis is u
     },
     {
       code: 0,
-      data: { replies: [{ like: 10, member: { uname: "commenter" }, content: { message: "Useful repository link" } }] },
+      data: [{ tag_name: "finance" }, { tag_name: "quant" }],
+    },
+    {
+      code: 0,
+      data: { replies: [{ like: 10, member: { uname: "commenter" }, content: { message: "Useful repository link" } }], top: { rpid: 321, like: 1, member: { uname: "uploader" }, content: { message: "Pinned note" } } },
     },
   ];
 
@@ -149,7 +171,151 @@ test("Bilibili research preserves metadata and comments when media analysis is u
 
     assert.match(result, /"analysis":"unavailable"/);
     assert.match(result, /Test video/);
+    assert.match(result, /"category": "Research"/);
+    assert.match(result, /"tags": \[\n\s+"finance",\n\s+"quant"\n\s+\]/);
     assert.match(result, /Useful repository link/);
+    assert.match(result, /"pinned": true/);
+    assert.match(result, /Pinned note/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousCookieFile === undefined) delete process.env.BILIBILI_COOKIES_FILE;
+    else process.env.BILIBILI_COOKIES_FILE = previousCookieFile;
+  }
+});
+
+test("Bilibili research keeps deterministic context outside the model answer", async () => {
+  const previousProvider = process.env.CODEX_VIDEO_PROVIDER;
+  const previousBaseUrl = process.env.STEPFUN_BASE_URL;
+  const previousApiKey = process.env.STEPFUN_API_KEY;
+  const previousFetch = globalThis.fetch;
+  let providerPrompt = "";
+
+  try {
+    process.env.CODEX_VIDEO_PROVIDER = "stepfun";
+    process.env.STEPFUN_BASE_URL = "https://api.stepfun.com/v1";
+    process.env.STEPFUN_API_KEY = "test-key";
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+      if (url.includes("/x/web-interface/view")) {
+        return new Response(JSON.stringify({
+          code: 0,
+          data: {
+            aid: 1,
+            cid: 2,
+            title: "Context video",
+            desc: "Description from Bilibili",
+            owner: { name: "Context uploader", mid: 3 },
+            pubdate: 1_700_000_000,
+            tname: "Tutorial",
+            stat: { view: 7 },
+            duration: 60,
+          },
+        }), { status: 200 });
+      }
+      if (url.includes("/x/tag/archive/tags")) {
+        return new Response(JSON.stringify({ code: 0, data: [{ tag_name: "agent" }] }), { status: 200 });
+      }
+      if (url.includes("/x/v2/reply")) {
+        return new Response(JSON.stringify({ code: 0, data: { replies: [{ rpid: 4, like: 9, member: { uname: "viewer" }, content: { message: "Community comment" } }] } }), { status: 200 });
+      }
+      if (url.includes("/x/player/v2")) {
+        return new Response(JSON.stringify({ code: 0, data: { subtitle: { subtitles: [{ subtitle_url: "https://subtitle.test/subtitle.json" }] } } }), { status: 200 });
+      }
+      if (url === "https://subtitle.test/subtitle.json") {
+        return new Response(JSON.stringify({ body: [{ from: 0, to: 2, content: "A caption" }] }), { status: 200 });
+      }
+      if (url.endsWith("/chat/completions")) {
+        const body = JSON.parse(String(init?.body));
+        providerPrompt = body.messages[0].content;
+        return new Response(JSON.stringify({ choices: [{ message: { content: "model answer intentionally omits context" } }] }), { status: 200 });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    }) as typeof fetch;
+
+    const result = await researchBilibiliVideo({
+      url: "https://www.bilibili.com/video/BV1Dg5W69Ecx/",
+      question: "What is said?",
+      mode: "language",
+      mediaDetail: "default",
+      includeComments: true,
+    });
+
+    assert.match(result, /"analysis":"complete"/);
+    assert.match(result, /VIDEO CONTEXT/);
+    assert.match(result, /Context video/);
+    assert.match(result, /Context uploader/);
+    assert.match(result, /Community comment/);
+    assert.match(result, /model answer intentionally omits context/);
+    assert.match(providerPrompt, /VIDEO CONTEXT/);
+    assert.match(providerPrompt, /Community comment/);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousProvider === undefined) delete process.env.CODEX_VIDEO_PROVIDER;
+    else process.env.CODEX_VIDEO_PROVIDER = previousProvider;
+    if (previousBaseUrl === undefined) delete process.env.STEPFUN_BASE_URL;
+    else process.env.STEPFUN_BASE_URL = previousBaseUrl;
+    if (previousApiKey === undefined) delete process.env.STEPFUN_API_KEY;
+    else process.env.STEPFUN_API_KEY = previousApiKey;
+  }
+});
+
+test("Bilibili research distinguishes empty context from auxiliary API failures", async () => {
+  const previousCookieFile = process.env.BILIBILI_COOKIES_FILE;
+  const previousFetch = globalThis.fetch;
+  const missingCookieFile = path.join(os.tmpdir(), "codex-video-mcp-missing-cookies.txt");
+  let tagPayload: unknown = { code: 0, data: [] };
+  let commentPayload: unknown = { code: 0, data: { replies: [] } };
+
+  try {
+    process.env.BILIBILI_COOKIES_FILE = missingCookieFile;
+    globalThis.fetch = (async (input) => {
+      const url = String(input);
+      if (url.includes("/x/web-interface/view")) {
+        return new Response(JSON.stringify({
+          code: 0,
+          data: {
+            aid: 10,
+            cid: 20,
+            title: "Status video",
+            desc: "Description",
+            owner: { name: "Uploader", mid: 30 },
+            pubdate: 1_700_000_000,
+            tname: "Research",
+            stat: { view: 1 },
+            duration: 30,
+          },
+        }), { status: 200 });
+      }
+      if (url.includes("/x/tag/archive/tags")) return new Response(JSON.stringify(tagPayload), { status: 200 });
+      if (url.includes("/x/v2/reply")) return new Response(JSON.stringify(commentPayload), { status: 200 });
+      throw new Error(`Unexpected request: ${url}`);
+    }) as typeof fetch;
+
+    const emptyResult = await researchBilibiliVideo({
+      url: "https://www.bilibili.com/video/BV1Dg5W69Ecx/",
+      question: "What is shown?",
+      mode: "vision",
+      mediaDetail: "low",
+      includeComments: true,
+    });
+    assert.match(emptyResult, /"community_status":"empty"/);
+    assert.match(emptyResult, /"tags_status":"empty"/);
+    assert.match(emptyResult, /"status": "empty"/);
+    assert.match(emptyResult, /"displayed_count": 0/);
+
+    tagPayload = { code: -400, message: "tags unavailable" };
+    commentPayload = { code: -403, message: "comments unavailable" };
+    const failedResult = await researchBilibiliVideo({
+      url: "https://www.bilibili.com/video/BV1Dg5W69Ecx/",
+      question: "What is shown?",
+      mode: "vision",
+      mediaDetail: "low",
+      includeComments: true,
+    });
+    assert.match(failedResult, /"analysis":"unavailable"/);
+    assert.match(failedResult, /"community_status":"fetch_failed"/);
+    assert.match(failedResult, /"tags_status":"fetch_failed"/);
+    assert.match(failedResult, /Status video/);
   } finally {
     globalThis.fetch = previousFetch;
     if (previousCookieFile === undefined) delete process.env.BILIBILI_COOKIES_FILE;

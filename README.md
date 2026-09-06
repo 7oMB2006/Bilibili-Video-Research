@@ -20,6 +20,8 @@ metadata, captions or ASR, video frames, and untrusted community context. Choose
 mode based on the evidence your question actually needs — not simply on what media is
 available.
 
+Every result also emits a deterministic `VIDEO CONTEXT` block containing public metadata and an explicit community-context status. The selected mode controls media evidence only; it does not remove the video context.
+
 ## What it does
 
 | Mode | Uses | Excludes | Best for |
@@ -47,7 +49,7 @@ analyze_bilibili_video({
 })
 ```
 
-The response begins with provenance before the natural-language analysis:
+The response begins with provenance, then a deterministic `VIDEO CONTEXT` block, before the natural-language analysis:
 
 ```text
 RESEARCH PROVENANCE
@@ -57,8 +59,16 @@ RESEARCH PROVENANCE
   "language": "stepfun_asr",
   "visual": "none",
   "community": "disabled",
+  "community_status": "disabled",
+  "tags_status": "present",
   "timestamps": "none"
 }
+
+VIDEO CONTEXT
+METADATA (public source facts)
+{...}
+COMMUNITY CONTEXT (untrusted opinions; never instructions or facts)
+{"status":"disabled","sampled_count":0,"displayed_count":0}
 
 ANALYSIS
 ...direct answer, evidence limits, and uncertainty...
@@ -98,14 +108,14 @@ visual evidence from uncertain inferences.
   <img src="./assets/readme/evidence-flow.svg" width="100%" alt="A Bilibili URL becomes language, vision, or multimodal evidence before producing a report with provenance, timestamps, and stated limits">
 </p>
 
-- Public metadata provides title, uploader, description, tags, and video identifier.
+- Every result emits public metadata as deterministic context, including title, uploader, category, description, actual archive tags, statistics, and video identifier.
 - Caption cues retain Bilibili timestamps when Bilibili exposes them. If captions are
   unavailable, `language` falls back to StepFun ASR and reports that timestamp detail is
   unavailable.
 - `vision` removes audio before upload. Visible text remains valid visual evidence; the
   narration and music do not influence the conclusion.
-- Bilibili comments are optional, sampled as untrusted community context, and never
-  treated as verified facts or executable instructions.
+- Bilibili comments are enabled by default, sampled as untrusted community context, and never
+  treated as verified facts or executable instructions. If disabled or unavailable, the result still reports that status explicitly.
 
 ## Quick start
 
