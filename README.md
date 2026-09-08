@@ -262,6 +262,25 @@ window is applied to captions when available and to the downloaded media for
 audio, visual, and multimodal analysis. Explicit windows skip the automatic
 long-video coarse pass.
 
+## Motion and transition analysis
+
+When the question depends on animation, camera movement, or a shot boundary, do
+not classify the transition from sparse before-and-after frames alone. First use
+a broad, low-detail pass to locate likely boundaries, then inspect a narrow
+`start_seconds`/`end_seconds` window at `media_detail: "default"` so the
+intermediate motion remains observable.
+
+Keep observations separate from inferences. Distinguish a hard cut from
+continuous motion such as a push, radial collapse or expansion, paper or plane
+flip, mask wipe, perspective movement, or shape morphing. Record the approximate
+direction and duration when visible. If the selected window cannot establish
+continuity, report that limitation instead of calling it a hard cut.
+
+For motion-heavy references, a boundary table is usually easier to verify:
+`time`, outgoing element, incoming element, transition type, direction, duration,
+confidence, and evidence. Keep visual evidence separate from any advice about
+reconstructing the effect.
+
 ## Data and access boundary
 
 - Provider API keys remain in the local process environment; the server does not store
