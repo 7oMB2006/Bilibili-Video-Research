@@ -90,7 +90,7 @@ ANALYSIS
 ![一个 Bilibili 视频分别产生 LANGUAGE（语言）、VISION（视觉）或 MULTIMODAL（多模态）证据，再形成带有溯源、时间戳和限制说明的研究报告](./assets/readme/evidence-flow.zh-CN.svg)
 
 - 每次结果都会把公开元数据作为确定性上下文输出，包括标题、上传者、分区、简介、实际投稿标签、统计信息与视频标识符。
-- Bilibili 提供字幕时，会保留相应时间戳；无字幕时，`language` 走所选 Provider 的转写/ASR 路径（StepFun 默认使用 `stepaudio-2.5-asr`），并明确时间戳细节不可用。
+- Bilibili 提供字幕时，会保留相应时间戳；无字幕时，`language` 走所选 Provider 的转写/ASR 路径（StepFun 默认使用 `stepaudio-2.5-asr`），并明确时间戳细节不可用。默认 StepFun 路径的溯源值为 `stepfun_asr`；明确选择 Gemini 时为 `gemini_audio`。
 - `vision` 在上传前移除音轨。画面中可见的文字仍是有效视觉证据；旁白和背景音乐不会影响结论。
 - Bilibili 评论默认作为不受信任的社区上下文采样；它们不会被当作已验证事实或可执行指令。若评论被禁用或接口不可用，结果仍会明确报告对应状态。
 
@@ -134,12 +134,15 @@ Copy-Item .env.example .env
 command = "<PROJECT_DIR>\\node_modules\\.bin\\tsx.cmd"
 args = ["<PROJECT_DIR>\\src\\index.ts"]
 startup_timeout_sec = 120
+tool_timeout_sec = 240
 
 [mcp_servers.codex_video.env]
 DOTENV_CONFIG_PATH = "<PROJECT_DIR>\\.env"
 ```
 
 新增或修改服务器配置后，请重启 Codex。Key 请保存在 `.env` 或密钥管理器里，不要写入 `config.toml`。
+
+`startup_timeout_sec` 只控制 MCP 启动和工具发现；`tool_timeout_sec` 才是单次工具调用上限。由于省略该配置时的默认值可能随 Codex 版本变化（旧版本常见约 60 秒），示例在这里将上限显式设为 240 秒。一次 Bilibili 研究可能串联元数据请求、视频下载、FFmpeg 处理、媒体上传和模型推理；如果研究特别长的视频或网络较慢，可以按需继续调大。
 
 ### OpenCode
 

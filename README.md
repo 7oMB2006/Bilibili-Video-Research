@@ -115,7 +115,9 @@ visual evidence from uncertain inferences.
 - Every result emits public metadata as deterministic context, including title, uploader, category, description, actual archive tags, statistics, and video identifier.
 - Caption cues retain Bilibili timestamps when Bilibili exposes them. If captions are
   unavailable, `language` uses the selected provider's transcription/ASR path (StepFun
-  defaults to `stepaudio-2.5-asr`) and reports that timestamp detail is unavailable.
+  defaults to `stepaudio-2.5-asr`) and reports that timestamp detail is unavailable. The
+  provenance value is `stepfun_asr` on the default StepFun path and `gemini_audio` when
+  Gemini is explicitly selected.
 - `vision` removes audio before upload. Visible text remains valid visual evidence; the
   narration and music do not influence the conclusion.
 - Bilibili comments are enabled by default, sampled as untrusted community context, and never
@@ -165,6 +167,7 @@ absolute path to your clone, for example `C:\Users\you\projects\Bilibili-Video-R
 command = "<PROJECT_DIR>\\node_modules\\.bin\\tsx.cmd"
 args = ["<PROJECT_DIR>\\src\\index.ts"]
 startup_timeout_sec = 120
+tool_timeout_sec = 240
 
 [mcp_servers.codex_video.env]
 DOTENV_CONFIG_PATH = "<PROJECT_DIR>\\.env"
@@ -172,6 +175,13 @@ DOTENV_CONFIG_PATH = "<PROJECT_DIR>\\.env"
 
 Restart Codex after adding or changing the server. Keep provider keys in `.env` or a
 secret manager, never in `config.toml`.
+
+`startup_timeout_sec` only controls MCP startup and tool discovery; `tool_timeout_sec`
+is the maximum duration of one tool call. Because the omitted-value default can vary by
+Codex version (older setups commonly used about 60 seconds), this example sets the limit
+explicitly to 240 seconds. A Bilibili request may combine metadata requests, video
+download, FFmpeg processing, media upload, and model inference in one call; increase the
+value further when researching unusually long videos or working on a slow connection.
 
 ### OpenCode
 

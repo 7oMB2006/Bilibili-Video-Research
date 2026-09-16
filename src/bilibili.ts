@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { promisify } from "node:util";
 import { execFile as execFileCallback } from "node:child_process";
-import { analyzeMediaWithProvider, analyzeTextWithProvider, createAudioTrack, createVideoWindow, createSilentVideo, createSilentWindow, getFfmpegPath, removeTemporaryWindow, type MediaDetail } from "./video-analysis.js";
+import { analyzeMediaWithProvider, analyzeTextWithProvider, createAudioTrack, createVideoWindow, createSilentVideo, createSilentWindow, getConfiguredVideoProvider, getFfmpegPath, removeTemporaryWindow, type MediaDetail } from "./video-analysis.js";
 
 const execFile = promisify(execFileCallback);
 const require = createRequire(import.meta.url);
@@ -78,7 +78,7 @@ interface EvidenceProvenance {
   mode: ResearchMode;
   analysis: "complete" | "unavailable";
   metadata: "bilibili_api";
-  language: "bilibili_caption" | "stepfun_asr" | "none";
+  language: "bilibili_caption" | "stepfun_asr" | "gemini_audio" | "none";
   visual: "silent_video" | "windowed_silent_video" | "original_video" | "windowed_original_video" | "none";
   community: "top_sampled_root_comments" | "disabled" | "unavailable";
   community_status: ContextStatus;
@@ -491,7 +491,7 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
           const audio = await createAudioTrack(sourceWindow?.clipPath ?? source);
           try {
             return finish(await analyzeMediaWithProvider(audio.audioPath, languagePrompt(context, request.question, "No Bilibili captions were available. Transcribe the supplied audio."), request.mediaDetail), {
-              language: "stepfun_asr",
+              language: getConfiguredVideoProvider() === "gemini" ? "gemini_audio" : "stepfun_asr",
               timestamps: "none",
             });
           } finally {
