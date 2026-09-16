@@ -164,6 +164,12 @@ OpenCode 参考：
 
 
 
+## 上层封装建议
+
+本项目提供的是 MCP 核心能力，不绑定特定的 Agent 或 harness。若使用 Codex 或 OpenCode，可以参考本项目的工具说明与研究流程，将其进一步封装为对应平台的 skill，方便重复使用。若使用个人搭建的 Agent 或其他 harness，也可以根据自身的扩展机制，将这些 MCP 工具封装成 skill、插件、命令、system prompt 或其他形式。
+
+本项目保证的兼容边界是 MCP 工具接口。安装 MCP 不会自动在所有客户端中生成名为 `Bilibili Video Research` 的命令或 skill；客户端侧的上层封装需要另行安装或自行编写。
+
 ## 提供商选择
 
 
