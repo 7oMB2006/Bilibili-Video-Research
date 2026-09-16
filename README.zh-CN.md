@@ -98,13 +98,20 @@ ANALYSIS
 
 StepFun 或 Gemini。
 
+FFmpeg 通常会由 npm 依赖 `ffmpeg-static` 自动提供，因此无需单独安装。若当前平台无法使用内置二进制文件，可在 `.env` 中设置 `FFMPEG_PATH`，指向一个可用的 FFmpeg 可执行文件。
+
+视频下载使用 npm 依赖 `yt-dlp-exec` 提供的 yt-dlp 二进制文件，通常无需单独安装 yt-dlp。
+
 ```powershell
 git clone https://github.com/7oMB2006/Bilibili-Video-Research.git
 cd Bilibili-Video-Research
 npm ci
 npm run build
+npm test
 Copy-Item .env.example .env
 ```
+
+这套测试在本地运行，不需要 Provider Key，也不会访问真实的 Bilibili 或模型接口。
 
 打开 `.env` 并填入一个提供商的 Key。该文件被 Git 忽略，绝不能提交。默认配置使用 StepFun 官方开放平台 API。
 
@@ -169,6 +176,12 @@ OpenCode 参考：
 本项目提供的是 MCP 核心能力，不绑定特定的 Agent 或 harness。若使用 Codex 或 OpenCode，可以参考本项目的工具说明与研究流程，将其进一步封装为对应平台的 skill，方便重复使用。若使用个人搭建的 Agent 或其他 harness，也可以根据自身的扩展机制，将这些 MCP 工具封装成 skill、插件、命令、system prompt 或其他形式。
 
 本项目保证的兼容边界是 MCP 工具接口。安装 MCP 不会自动在所有客户端中生成名为 `Bilibili Video Research` 的命令或 skill；客户端侧的上层封装需要另行安装或自行编写。
+
+### 安装完成后
+
+依赖安装和构建成功，只代表本地项目已准备好。要完成可用配置，还需要在目标客户端注册本地 MCP，重启客户端，确认能看到 `codex_video`，再用一个公开 Bilibili 链接完成一次请求，验证端到端链路。
+
+对于 Agent 辅助安装，建议分别报告以下状态：项目已准备、MCP 已注册、可选的客户端 skill 已安装、首次请求已验证。客户端 skill 是可选项；单独安装 MCP 不会自动生成它。
 
 ## 提供商选择
 
