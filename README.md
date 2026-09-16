@@ -22,11 +22,15 @@ available.
 
 Every result also emits a deterministic `VIDEO CONTEXT` block containing public metadata and an explicit community-context status. The selected mode controls media evidence only; it does not remove the video context.
 
+## Before you start
+
+This is a local MCP server, but public metadata, archive tags, optional sampled comments, and selected media or text evidence may be sent to the provider configured in `.env`. Provider requests may consume API balance or subscription credits, and the selected provider's pricing and data terms apply. For a first run, use a short public video or an explicit source window; review [Data and access boundary](#data-and-access-boundary) before using sensitive content.
+
 ## What it does
 
 | Mode | Uses | Excludes | Best for |
 | --- | --- | --- | --- |
-| `language` | No model when captions are available; StepFun `stepaudio-2.5-asr` when they are not | Video-frame inference | Project recommendations, tutorials, and claims made by the presenter |
+| `language` | Bilibili captions when available; otherwise the selected provider's transcription/ASR path (`stepaudio-2.5-asr` for StepFun) | Video-frame inference | Project recommendations, tutorials, and claims made by the presenter |
 | `vision` | StepFun `step-3.7-flash` by default | Audio and background music | Interfaces, workflows, experiments, objects, and silent demonstrations |
 | `multimodal` | StepFun `step-3.7-flash` by default | Nothing by default | Questions that genuinely require both narration and what is shown |
 
@@ -110,8 +114,8 @@ visual evidence from uncertain inferences.
 
 - Every result emits public metadata as deterministic context, including title, uploader, category, description, actual archive tags, statistics, and video identifier.
 - Caption cues retain Bilibili timestamps when Bilibili exposes them. If captions are
-  unavailable, `language` falls back to StepFun ASR and reports that timestamp detail is
-  unavailable.
+  unavailable, `language` uses the selected provider's transcription/ASR path (StepFun
+  defaults to `stepaudio-2.5-asr`) and reports that timestamp detail is unavailable.
 - `vision` removes audio before upload. Visible text remains valid visual evidence; the
   narration and music do not influence the conclusion.
 - Bilibili comments are enabled by default, sampled as untrusted community context, and never
@@ -119,7 +123,8 @@ visual evidence from uncertain inferences.
 
 ## Quick start
 
-**Requirements:** Node.js 24 or newer, a StepFun or Gemini API key, and a Codex,
+**Requirements:** Node.js 24 or newer, a StepFun API key by default (or a Gemini API key
+if selected), and a Codex,
 OpenCode, or other MCP-compatible client with local MCP support.
 
 FFmpeg is normally provided by the `ffmpeg-static` npm dependency, so no separate
@@ -214,17 +219,20 @@ The MCP interface is the compatibility boundary guaranteed by this project. Inst
 
 ### After installation
 
-A successful dependency install and build only prepare the local project. For a usable setup, register the local MCP server in the target client, restart the client, and confirm that `codex_video` is available. Then run one public Bilibili request to verify the end-to-end path.
-
-For agent-assisted installation, report these states separately: repository prepared, MCP registered, optional client-side skill installed, and first request verified. A client-side skill is optional; installing the MCP alone does not create one.
+Register the local MCP server in the target client, restart the client, and run one public Bilibili request to verify the end-to-end path. A client-side skill or command is an optional wrapper and is not created automatically by installing the MCP.
 
 ## Provider selection
 
-### Step 3.7 Flash
+### StepFun
 
-The default provider is StepFun through the official Open Platform API. Set
+The default provider is StepFun through the official Open Platform API. When
+`CODEX_VIDEO_PROVIDER` is unset, the server still selects StepFun; missing StepFun
+credentials are reported as configuration errors rather than silently switching to
+Gemini. Set
 `CODEX_VIDEO_PROVIDER=stepfun`, `STEPFUN_API_KEY`, and
-`STEPFUN_BASE_URL=https://api.stepfun.com/v1` in `.env`. To use Gemini instead,
+`STEPFUN_BASE_URL=https://api.stepfun.com/v1` in `.env`. The official URL is also
+used when `STEPFUN_BASE_URL` is omitted; set it explicitly to use Step Plan instead. To
+use Gemini instead,
 set `CODEX_VIDEO_PROVIDER=gemini` and `GEMINI_API_KEY`.
 
 Choose the StepFun base URL that matches your account channel:
@@ -243,24 +251,17 @@ available, StepFun helped carry me through much of that journey), so this projec
 prioritizes StepFun integration and recommends it as the default provider. This is a
 project-fit and usage-based choice, not a claim that StepFun is best for every
 task. Step Plan remains available as an optional channel for accounts that have
-Step Plan Credit access, and you are welcome to try other capable providers.
+Step Plan Credit access. Other providers require their own adapter and are not part of
+the documented setup. In the author's use, the response speed of `step-3.7-flash` has also made it a good fit for
+the repeated, tool-like media-understanding calls common in an MCP workflow.
 
 ### Other
 
 - Gemini remains an optional provider.
 - MiniMax is not integrated because this project has not validated an official
   video-input understanding route.
-- GLM-5.3-Flash (Z.AI) has been evaluated experimentally. With the request shape and
-  Z.AI API path used by this project, only `vision` has been confirmed: the model can
-  identify video frames and visible text. In an isolation test with a valid audio track,
-  it did not read the audio, so it is not listed as a `language` or full `multimodal`
-  provider. This section records the experiment only; it does not provide GLM setup
-  instructions.
-
-  > On August 26, 2026, Zhipu claimed “Ox Alpha”. GLM-5.3-Flash, as Zhipu's
-  > new-generation multimodal model, was subsequently tested by this project. The
-  > result is only a supplementary reference alongside StepFun and does not change
-  > StepFun's default status.
+- Only StepFun and Gemini are currently integrated; other providers require their own
+  adapter and are not part of the documented setup.
 
 StepFun references:
 
@@ -307,8 +308,13 @@ reconstructing the effect.
 
 - Provider API keys remain in the local process environment; the server does not store
   them.
-- Provider media uploads or data URLs may leave the local machine. Review the
-  applicable provider terms before using sensitive videos.
+- Public metadata, archive tags, optional sampled comments, and selected media or text
+  evidence may be sent to the configured provider. Provider media uploads or data URLs
+  may leave the local machine. Review the applicable provider terms before using
+  sensitive videos.
+- Provider requests may consume API balance or subscription credits. Check the selected
+  provider's pricing and quota before long or multimodal runs; use an explicit source
+  window when possible.
 - Public Bilibili access is attempted first. Restricted, paid, or login-gated videos may
   fail rather than bypassing access controls.
 - For a user-authorized logged-in Bilibili account, point `BILIBILI_COOKIES_FILE` at a

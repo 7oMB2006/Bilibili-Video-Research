@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { promisify } from "node:util";
 import { execFile as execFileCallback } from "node:child_process";
-import { analyzeMediaWithGemini, analyzeTextWithGemini, createAudioTrack, createVideoWindow, createSilentVideo, createSilentWindow, getFfmpegPath, removeTemporaryWindow, type MediaDetail } from "./video-analysis.js";
+import { analyzeMediaWithProvider, analyzeTextWithProvider, createAudioTrack, createVideoWindow, createSilentVideo, createSilentWindow, getFfmpegPath, removeTemporaryWindow, type MediaDetail } from "./video-analysis.js";
 
 const execFile = promisify(execFileCallback);
 const require = createRequire(import.meta.url);
@@ -374,7 +374,7 @@ function extractDetailWindows(coarse: string, duration: number): Array<[number, 
 async function analyzeLongVisionVideo(source: string, duration: number, context: string, question: string, mediaDetail: MediaDetail): Promise<string> {
   const coarseSilent = await createSilentVideo(source);
   try {
-    const coarse = await analyzeMediaWithGemini(coarseSilent.videoPath, [
+    const coarse = await analyzeMediaWithProvider(coarseSilent.videoPath, [
       visionPrompt(context, question),
       `This is a long video (${duration.toFixed(0)} seconds). First pass: scan the whole clip coarsely, identify the most relevant time points, and write timestamps as MM:SS.`,
     ].join("\n"), "low");
@@ -383,7 +383,7 @@ async function analyzeLongVisionVideo(source: string, duration: number, context:
     for (const [start, end] of windows) {
       const window = await createSilentWindow(source, start, end);
       try {
-        details.push(`WINDOW ${start.toFixed(1)}-${end.toFixed(1)}s\n${await analyzeMediaWithGemini(window.clipPath, [
+        details.push(`WINDOW ${start.toFixed(1)}-${end.toFixed(1)}s\n${await analyzeMediaWithProvider(window.clipPath, [
           visionPrompt(context, question),
           `Focus only on source interval ${start.toFixed(1)}s to ${end.toFixed(1)}s.`,
         ].join("\n"), mediaDetail)}`);
@@ -478,7 +478,7 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
   try {
     if (request.mode === "language") {
       const captions = await getCaptionText(video, startSeconds, endSeconds);
-      if (captions) return finish(await analyzeTextWithGemini(languagePrompt(context, request.question, captions.text)), {
+      if (captions) return finish(await analyzeTextWithProvider(languagePrompt(context, request.question, captions.text)), {
         language: "bilibili_caption",
         timestamps: captions.hasTimestamps ? "caption_cues" : "none",
       });
@@ -490,7 +490,7 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
         try {
           const audio = await createAudioTrack(sourceWindow?.clipPath ?? source);
           try {
-            return finish(await analyzeMediaWithGemini(audio.audioPath, languagePrompt(context, request.question, "No Bilibili captions were available. Transcribe the supplied audio."), request.mediaDetail), {
+            return finish(await analyzeMediaWithProvider(audio.audioPath, languagePrompt(context, request.question, "No Bilibili captions were available. Transcribe the supplied audio."), request.mediaDetail), {
               language: "stepfun_asr",
               timestamps: "none",
             });
@@ -517,14 +517,14 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
           : await createSilentVideo(source);
         try {
           const silentPath = "clipPath" in silent ? silent.clipPath : silent.videoPath;
-          return finish(await analyzeMediaWithGemini(silentPath, visionPrompt(context, request.question, startSeconds, endSeconds), request.mediaDetail));
+          return finish(await analyzeMediaWithProvider(silentPath, visionPrompt(context, request.question, startSeconds, endSeconds), request.mediaDetail));
         } finally {
           await removeTemporaryWindow(silent.directory);
         }
       }
       const sourceWindow = hasWindow ? await createVideoWindow(source, startSeconds, endSeconds) : undefined;
       try {
-        return finish(await analyzeMediaWithGemini(sourceWindow?.clipPath ?? source, multimodalPrompt(context, request.question, startSeconds, endSeconds), request.mediaDetail));
+        return finish(await analyzeMediaWithProvider(sourceWindow?.clipPath ?? source, multimodalPrompt(context, request.question, startSeconds, endSeconds), request.mediaDetail));
       } finally {
         if (sourceWindow) await removeTemporaryWindow(sourceWindow.directory);
       }
