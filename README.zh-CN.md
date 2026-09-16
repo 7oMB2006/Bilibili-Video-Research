@@ -10,12 +10,16 @@
 
 将 Bilibili 链接转成研究报告，并明确区分公开元数据、字幕或 ASR、视频画面，以及不受信任的社区上下文。根据问题真正需要的证据选择模式，而不是因为视频有某种媒介就一股脑全用。每次返回还会固定附带一个 `VIDEO CONTEXT` 区块，包含公开元数据和明确的社区上下文状态；模式只决定媒体证据，不会移除这部分视频上下文。
 
+## 开始前请知道
+
+这是一个在本地运行的 MCP 服务器，但公开元数据、归档标签、可选采样评论，以及选定的媒体或文本证据可能会发送给 `.env` 中配置的 Provider。Provider 请求可能消耗 API 余额或订阅额度，具体以所选 Provider 的计费与数据条款为准。首次使用建议先选公开短视频或明确限定时间段；使用敏感内容前请先阅读[数据与访问边界](#数据与访问边界)。
+
 ## 它能做什么
 
 
 | 模式           | 会使用                            | 会排除     | 适用场景                    |
 | ------------ | ------------------------------ | ------- | ----------------------- |
-| `language`   | Bilibili 字幕；无字幕时使用 StepFun ASR | 视频画面推断  | UP 主推荐的项目、教程内容、演讲者提出的主张 |
+| `language`   | Bilibili 字幕；无字幕时走所选 Provider 的转写/ASR 路径（StepFun 使用 `stepaudio-2.5-asr`） | 视频画面推断  | UP 主推荐的项目、教程内容、演讲者提出的主张 |
 | `vision`     | 静音视频帧，包括可见 UI、代码、标签、图表和画面字幕    | 音频与背景音乐 | 界面、工作流、实验、物体与无声演示       |
 | `multimodal` | 原始视频的声音与画面                     | 默认不排除   | 确实同时依赖讲述和画面的提问          |
 
@@ -86,7 +90,7 @@ ANALYSIS
 ![一个 Bilibili 视频分别产生 LANGUAGE（语言）、VISION（视觉）或 MULTIMODAL（多模态）证据，再形成带有溯源、时间戳和限制说明的研究报告](./assets/readme/evidence-flow.zh-CN.svg)
 
 - 每次结果都会把公开元数据作为确定性上下文输出，包括标题、上传者、分区、简介、实际投稿标签、统计信息与视频标识符。
-- Bilibili 提供字幕时，会保留相应时间戳；无字幕时，`language` 回退为 StepFun ASR，并明确时间戳细节不可用。
+- Bilibili 提供字幕时，会保留相应时间戳；无字幕时，`language` 走所选 Provider 的转写/ASR 路径（StepFun 默认使用 `stepaudio-2.5-asr`），并明确时间戳细节不可用。
 - `vision` 在上传前移除音轨。画面中可见的文字仍是有效视觉证据；旁白和背景音乐不会影响结论。
 - Bilibili 评论默认作为不受信任的社区上下文采样；它们不会被当作已验证事实或可执行指令。若评论被禁用或接口不可用，结果仍会明确报告对应状态。
 
@@ -179,16 +183,14 @@ OpenCode 参考：
 
 ### 安装完成后
 
-依赖安装和构建成功，只代表本地项目已准备好。要完成可用配置，还需要在目标客户端注册本地 MCP，重启客户端，确认能看到 `codex_video`，再用一个公开 Bilibili 链接完成一次请求，验证端到端链路。
-
-对于 Agent 辅助安装，建议分别报告以下状态：项目已准备、MCP 已注册、可选的客户端 skill 已安装、首次请求已验证。客户端 skill 是可选项；单独安装 MCP 不会自动生成它。
+在目标客户端注册本地 MCP、重启客户端，再用公开 Bilibili 链接发起一次请求即可验证。客户端侧的 skill 或命令属于可选封装，不会随 MCP 自动生成。
 
 ## 提供商选择
 
 
 | 分析模式         | 供应商 / 模型                                     | 说明                                              |
 | ------------ | -------------------------------------------- | ----------------------------------------------- |
-| `language`   | 有字幕时不需要模型；无字幕时使用 StepFun `stepaudio-2.5-asr` | 只理解 UP 主说了什么。无字幕时默认使用 StepFun ASR；Gemini 可作为备选。 |
+| `language`   | 有 Bilibili 字幕时使用字幕文本；无字幕时走所选 Provider 的转写/ASR 路径（StepFun 使用 `stepaudio-2.5-asr`） | 只理解 UP 主说了什么；字幕或 ASR 文本仍会交给 Provider 分析。 |
 | `vision`     | StepFun `step-3.7-flash`（默认）                 | 只看画面，包括 UI、代码、标签、图表和无声演示。                       |
 | `multimodal` | StepFun `step-3.7-flash`（默认）                 | 同时使用语音/语言和画面。                                   |
 
@@ -197,9 +199,11 @@ OpenCode 参考：
 
 ### StepFun
 
-默认提供商是通过官方开放平台 API 调用的 StepFun。在 `.env` 中设置
+默认提供商是通过官方开放平台 API 调用的 StepFun。未设置
+`CODEX_VIDEO_PROVIDER` 时，服务器仍会选择 StepFun；如果缺少 StepFun 凭据，会直接报告配置错误，不会静默回退到 Gemini。在 `.env` 中设置
 `CODEX_VIDEO_PROVIDER=stepfun`、`STEPFUN_API_KEY` 与
-`STEPFUN_BASE_URL=https://api.stepfun.com/v1`。如需 Gemini，设置
+`STEPFUN_BASE_URL=https://api.stepfun.com/v1`。省略 `STEPFUN_BASE_URL` 时也会使用官方开放平台地址；如需 Step Plan，请显式切换 Base URL。
+如需 Gemini，设置
 `CODEX_VIDEO_PROVIDER=gemini` 与 `GEMINI_API_KEY`。
 
 选择 StepFun 作为默认提供商，是因为 `step-3.7-flash` 原生支持视频输入，
@@ -207,7 +211,9 @@ OpenCode 参考：
 此外，作者在多模态任务中使用阶跃星辰的模型较多，且整体体验良好（也有一点私心ovo，以前没有好用的多模态都是他支撑我的一路），因此本项目优先
 对 StepFun 做了适配并将其作为首选提供商。这是基于项目适配度和实际使用体验的选择，
 并不表示 StepFun 在所有任务上都优于其他模型。如果账户拥有 Step Plan Credit，也可以
-将 Base URL 切换到 Step Plan 渠道；如果你有其他不错的 Provider，也可以自行尝试。
+将 Base URL 切换到 Step Plan 渠道。其他 Provider 需要自行编写适配器，不属于当前文档化配置。
+在作者的实际使用中，`step-3.7-flash` 的处理速度也比较适合承担 MCP 中由 Agent
+反复调用的媒体理解链路。
 
 根据账户渠道选择相应的 StepFun base URL：
 
@@ -232,13 +238,7 @@ StepFun 参考：
 
 - Gemini 仍是可选提供商。
 - MiniMax 目前未被接入，因为本项目尚未验证其官方视频输入理解接口。
-- GLM-5.3-Flash（Z.AI）已完成实验验证。在本项目当前的请求方式和 Z.AI API
-路径下，只确认了 `vision`：模型能够识别视频画面和可见文字；在带有有效音轨的
-隔离测试中，模型未能读取音频，因此不将其列为 `language` 或完整
-`multimodal` Provider。本节仅记录实验结论，不提供 GLM 的接入配置方法。
-  > 2026年8月26日智谱认领”牛来“Ox Alpha ，GLM-5.3-Flash 作为智谱新生代多模态，本项目随后对其进行了视频输入实验，结果仅作为 StepFun 之外的补充参考，不改变 StepFun 的默认地位。
-
-
+- 当前仅正式接入 StepFun 和 Gemini；其他 Provider 需要自行编写适配器，不属于当前文档化配置。
 
 ## 工具参考
 
@@ -265,7 +265,8 @@ StepFun 参考：
 ## 数据与访问边界
 
 - 提供商 API Key 只保留在本地进程环境中；服务器不会存储它们。
-- 提供商的视频上传或 data URL 可能离开本机。对敏感视频，请先审阅对应提供商的条款。
+- 公开元数据、归档标签、可选采样评论，以及选定的媒体或文本证据可能会发送给配置的 Provider。提供商的视频上传或 data URL 可能离开本机。对敏感视频，请先审阅对应提供商的条款。
+- Provider 请求可能消耗 API 余额或订阅额度。长视频或多模态请求前请确认所选 Provider 的计费与额度；条件允许时优先指定时间段。
 - 先尝试公开 Bilibili 访问。受限、付费或登录门槛视频可能失败；本项目不绕过访问控制。
 - 如需使用用户明确授权的已登录 Bilibili 账户，可将 `BILIBILI_COOKIES_FILE` 指向本地 Netscape 格式 cookie 文件。不要提交它，也不要将内容粘贴到聊天中：
 
