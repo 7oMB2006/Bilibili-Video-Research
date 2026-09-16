@@ -22,6 +22,10 @@ available.
 
 Every result also emits a deterministic `VIDEO CONTEXT` block containing public metadata and an explicit community-context status. The selected mode controls media evidence only; it does not remove the video context.
 
+## Demo Video
+
+[Project demo on Bilibili: Let an Agent help you research videos](https://www.bilibili.com/video/BV1dPeP6REwM/)
+
 ## Before you start
 
 This is a local MCP server, but public metadata, archive tags, optional sampled comments, and selected media or text evidence may be sent to the provider configured in `.env`. Provider requests may consume API balance or subscription credits, and the selected provider's pricing and data terms apply. For a first run, use a short public video or an explicit source window; review [Data and access boundary](#data-and-access-boundary) before using sensitive content.
