@@ -196,6 +196,12 @@ OpenCode references:
 - [MCP servers](https://opencode.ai/docs/mcp-servers/)
 - [Configuration](https://opencode.ai/docs/config/)
 
+## Client-side packaging
+
+This repository provides the MCP layer and does not require a specific agent or harness. If you use Codex or OpenCode, you can use the documented tools and research workflow as a reference and wrap them as a client-specific skill for easier reuse. If you use a personal agent or another harness, you can package the MCP tools according to its own extension model, such as a skill, plugin, command, or system prompt.
+
+The MCP interface is the compatibility boundary guaranteed by this project. Installing the MCP does not automatically create a `Bilibili Video Research` command or skill in every client; the client-side wrapper must be installed or authored separately.
+
 ## Provider selection
 
 ### Step 3.7 Flash
