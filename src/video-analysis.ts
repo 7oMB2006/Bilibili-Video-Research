@@ -30,6 +30,10 @@ function selectedProvider(): VideoProvider {
   throw new Error("CODEX_VIDEO_PROVIDER must be stepfun or gemini.");
 }
 
+export function getConfiguredVideoProvider(): VideoProvider {
+  return selectedProvider();
+}
+
 function mediaMimeType(mediaPath: string): string {
   const extension = path.extname(mediaPath).toLowerCase();
   const types: Record<string, string> = {

@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { analyzeMediaWithProvider, buildVisualResearchPrompt } from "../src/video-analysis.js";
+import { analyzeMediaWithProvider, analyzeTextWithProvider, buildVisualResearchPrompt } from "../src/video-analysis.js";
 import { researchBilibiliVideo, selectCaptionCues, selectRepresentativeComments, validateBilibiliWindow } from "../src/bilibili.js";
 
 test("visual research prompt excludes audio while retaining useful visible text", () => {
@@ -64,6 +64,47 @@ test("window prompt preserves source timing", () => {
   assert.match(prompt, /12\.00s to 18\.50s/);
 });
 
+
+test("StepFun is the default provider and missing credentials do not fall back to Gemini", async () => {
+  const previousProvider = process.env.CODEX_VIDEO_PROVIDER;
+  const previousBaseUrl = process.env.STEPFUN_BASE_URL;
+  const previousApiKey = process.env.STEPFUN_API_KEY;
+  const previousGeminiApiKey = process.env.GEMINI_API_KEY;
+  const previousFetch = globalThis.fetch;
+  const requestedUrls: string[] = [];
+
+  try {
+    delete process.env.CODEX_VIDEO_PROVIDER;
+    delete process.env.STEPFUN_BASE_URL;
+    process.env.STEPFUN_API_KEY = "test-key";
+    process.env.GEMINI_API_KEY = "must-not-be-used";
+    globalThis.fetch = (async (input, init) => {
+      const url = String(input);
+      requestedUrls.push(url);
+      assert.equal(url, "https://api.stepfun.com/v1/chat/completions");
+      assert.equal(init?.method, "POST");
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.model, "step-3.7-flash");
+      return new Response(JSON.stringify({ choices: [{ message: { content: "stepfun response" } }] }), { status: 200 });
+    }) as typeof fetch;
+
+    assert.equal(await analyzeTextWithProvider("default provider"), "stepfun response");
+
+    delete process.env.STEPFUN_API_KEY;
+    await assert.rejects(() => analyzeTextWithProvider("missing key"), /STEPFUN_API_KEY is not configured/);
+    assert.deepEqual(requestedUrls, ["https://api.stepfun.com/v1/chat/completions"]);
+  } finally {
+    globalThis.fetch = previousFetch;
+    if (previousProvider === undefined) delete process.env.CODEX_VIDEO_PROVIDER;
+    else process.env.CODEX_VIDEO_PROVIDER = previousProvider;
+    if (previousBaseUrl === undefined) delete process.env.STEPFUN_BASE_URL;
+    else process.env.STEPFUN_BASE_URL = previousBaseUrl;
+    if (previousApiKey === undefined) delete process.env.STEPFUN_API_KEY;
+    else process.env.STEPFUN_API_KEY = previousApiKey;
+    if (previousGeminiApiKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = previousGeminiApiKey;
+  }
+});
 
 test("caption selection respects an explicit source interval", () => {
   const cues = [
