@@ -122,13 +122,23 @@ visual evidence from uncertain inferences.
 **Requirements:** Node.js 24 or newer, a StepFun or Gemini API key, and a Codex,
 OpenCode, or other MCP-compatible client with local MCP support.
 
+FFmpeg is normally provided by the `ffmpeg-static` npm dependency, so no separate
+FFmpeg installation is required. If the bundled binary cannot be used on your
+platform, set `FFMPEG_PATH` in `.env` to a working FFmpeg executable.
+
+Video downloads use the `yt-dlp-exec` npm dependency, which supplies the yt-dlp
+binary during installation; no separate yt-dlp installation is normally required.
+
 ```powershell
 git clone https://github.com/7oMB2006/Bilibili-Video-Research.git
 cd Bilibili-Video-Research
 npm ci
 npm run build
+npm test
 Copy-Item .env.example .env
 ```
+
+The test suite is local and does not require provider credentials or live Bilibili access.
 
 Open `.env` and fill in one provider key. It is ignored by Git and must never be
 committed. The default configuration uses StepFun's official Open Platform API.
@@ -201,6 +211,12 @@ OpenCode references:
 This repository provides the MCP layer and does not require a specific agent or harness. If you use Codex or OpenCode, you can use the documented tools and research workflow as a reference and wrap them as a client-specific skill for easier reuse. If you use a personal agent or another harness, you can package the MCP tools according to its own extension model, such as a skill, plugin, command, or system prompt.
 
 The MCP interface is the compatibility boundary guaranteed by this project. Installing the MCP does not automatically create a `Bilibili Video Research` command or skill in every client; the client-side wrapper must be installed or authored separately.
+
+### After installation
+
+A successful dependency install and build only prepare the local project. For a usable setup, register the local MCP server in the target client, restart the client, and confirm that `codex_video` is available. Then run one public Bilibili request to verify the end-to-end path.
+
+For agent-assisted installation, report these states separately: repository prepared, MCP registered, optional client-side skill installed, and first request verified. A client-side skill is optional; installing the MCP alone does not create one.
 
 ## Provider selection
 
