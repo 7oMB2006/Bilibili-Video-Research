@@ -14,6 +14,10 @@
 
 [【Bilibili-Video-Research】让 Agent 陪你一起研究视频，更高效地从视频中汲取知识](https://www.bilibili.com/video/BV1dPeP6REwM/)
 
+## 生态入口
+
+[Glama 收录页](https://glama.ai/mcp/servers/7oMB2006/Bilibili-Video-Research) —— 查看已收录的服务器、工具定义和质量信息。
+
 ## 开始前请知道
 
 这是一个在本地运行的 MCP 服务器，但公开元数据、归档标签、可选采样评论，以及选定的媒体或文本证据可能会发送给 `.env` 中配置的 Provider。Provider 请求可能消耗 API 余额或订阅额度，具体以所选 Provider 的计费与数据条款为准。首次使用建议先选公开短视频或明确限定时间段；使用敏感内容前请先阅读[数据与访问边界](#数据与访问边界)。
