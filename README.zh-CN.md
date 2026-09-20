@@ -186,6 +186,51 @@ OpenCode 参考：
 
 
 
+### DeepSeek Harness / DSH
+
+DSH 可以通过官方的 `@deepseek-ai/dsh-mcp-client` 桥接器使用本项目。
+Bilibili Video Research 仍然是标准 MCP 服务器，不需要改造成 DSH 专用封装或
+原生 DSH 插件。
+
+新建一个类似 `bvr.cordis.yml` 的 patch 文件，并将 `<PROJECT_DIR>` 替换为仓库
+克隆目录的绝对路径：
+
+```yaml
+- insert:
+    - id: mcp-bilibili-video-research
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: bilibili_video_research
+        transport: stdio
+        command: '<PROJECT_DIR>\node_modules\.bin\tsx.cmd'
+        args:
+          - '<PROJECT_DIR>\src\index.ts'
+        cwd: '<PROJECT_DIR>'
+        env:
+          DOTENV_CONFIG_PATH: '<PROJECT_DIR>\.env'
+        toolCallTimeoutMs: 240000
+        failOnStartupError: false
+```
+
+使用这个 patch 启动 DSH：
+
+```powershell
+dsh web --patch "C:\path\to\bvr.cordis.yml"
+```
+
+启动后，工具会以类似
+`mcp__bilibili_video_research__analyze_bilibili_video` 的名称暴露给 DSH。
+MCP 发现过程可能需要一点时间，第一次发送请求前请等待工具出现。需要持久化
+配置时，将相同的 patch 条目合并到目标 DSH profile 的 `cordis.patch.yml` 中；
+不要覆盖已有条目。Provider Key 继续保存在 BVR 的 `.env` 中，不要直接写进
+DSH patch。
+
+DSH 参考：
+
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
+- [DSH MCP 客户端](https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/mcp/mcp-client)
+- [第三方 MCP 接入指南](https://github.com/deepseek-ai/deepseek-harness/tree/main/docs/user/guide)
+
 ## 上层封装建议
 
 本项目提供的是 MCP 核心能力，不绑定特定的 Agent 或 harness。若使用 Codex 或 OpenCode，可以参考本项目的工具说明与研究流程，将其进一步封装为对应平台的 skill，方便重复使用。若使用个人搭建的 Agent 或其他 harness，也可以根据自身的扩展机制，将这些 MCP 工具封装成 skill、插件、命令、system prompt 或其他形式。

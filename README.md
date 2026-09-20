@@ -229,6 +229,52 @@ OpenCode references:
 - [MCP servers](https://opencode.ai/docs/mcp-servers/)
 - [Configuration](https://opencode.ai/docs/config/)
 
+### DeepSeek Harness / DSH
+
+DSH can use this project as an external MCP server through its official
+`@deepseek-ai/dsh-mcp-client` bridge. This keeps Bilibili Video Research as a
+standard MCP server; it does not require a DSH-specific wrapper or a native DSH
+plugin.
+
+Create a patch file such as `bvr.cordis.yml`, replacing `<PROJECT_DIR>` with the
+absolute path to your clone:
+
+```yaml
+- insert:
+    - id: mcp-bilibili-video-research
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: bilibili_video_research
+        transport: stdio
+        command: '<PROJECT_DIR>\node_modules\.bin\tsx.cmd'
+        args:
+          - '<PROJECT_DIR>\src\index.ts'
+        cwd: '<PROJECT_DIR>'
+        env:
+          DOTENV_CONFIG_PATH: '<PROJECT_DIR>\.env'
+        toolCallTimeoutMs: 240000
+        failOnStartupError: false
+```
+
+Start DSH with the patch:
+
+```powershell
+dsh web --patch "C:\path\to\bvr.cordis.yml"
+```
+
+After startup, the tools are exposed under names such as
+`mcp__bilibili_video_research__analyze_bilibili_video`. DSH may need a moment to
+finish MCP discovery before the tools appear. For a persistent setup, merge the
+same patch entry into the selected DSH profile's `cordis.patch.yml`; do not
+overwrite existing entries. Keep provider keys in the BVR `.env` file rather than
+putting them in the DSH patch.
+
+DSH references:
+
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
+- [DSH MCP client](https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/mcp/mcp-client)
+- [Third-party MCP setup guide](https://github.com/deepseek-ai/deepseek-harness/tree/main/docs/user/guide)
+
 ## Client-side packaging
 
 This repository provides the MCP layer and does not require a specific agent or harness. If you use Codex or OpenCode, you can use the documented tools and research workflow as a reference and wrap them as a client-specific skill for easier reuse. If you use a personal agent or another harness, you can package the MCP tools according to its own extension model, such as a skill, plugin, command, or system prompt.
