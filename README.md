@@ -333,6 +333,38 @@ Step Plan Credit access. Other providers require their own adapter and are not p
 the documented setup. In the author's use, the response speed of `step-3.7-flash` has also made it a good fit for
 the repeated, tool-like media-understanding calls common in an MCP workflow.
 
+#### Newer StepFun model compatibility tests
+
+The stable defaults remain `step-3.7-flash` for video understanding and
+`stepaudio-2.5-asr` for the no-caption ASR fallback. The following settings are
+only for keeping the adapter compatible with newer model generations and running
+smoke tests; they are not recommended default changes. If the account exposes
+`step-5-preview`, it can be tested without changing the MCP protocol:
+
+```env
+STEPFUN_VIDEO_MODEL=step-5-preview
+```
+
+The current StepFun adapter has been smoke-tested to send this model through the
+same Step Plan `chat/completions` `video_url` path. It remains a compatibility-test
+override, not the project default. `STEPFUN_ASR_MODEL` is also configurable, and a
+StepAudio 3 ASR model can be tested through the official Open Platform API when the
+account exposes it:
+
+```env
+STEPFUN_BASE_URL=https://api.stepfun.com/v1
+STEPFUN_ASR_MODEL=stepaudio-3-asr-max
+```
+
+The current adapter has smoke-tested that this model is accepted by the existing
+`/audio/asr/sse` request shape. This is only an interface-compatibility check, not
+a claim that its transcription quality has been fully benchmarked or that it should
+replace the stable default. Do not combine an Open Platform model override with a
+Step Plan Base URL or credentials.
+
+For the full cross-provider and historical test record, see
+[Model compatibility test history](./docs/model-compatibility.md).
+
 ### Other
 
 - Gemini remains an optional provider.

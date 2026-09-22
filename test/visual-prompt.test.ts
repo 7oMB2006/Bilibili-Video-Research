@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { analyzeMediaWithProvider, analyzeTextWithProvider, buildVisualResearchPrompt } from "../src/video-analysis.js";
+import { analyzeMediaWithProvider, analyzeTextWithProvider, buildVisualResearchPrompt, transcribeAudioWithStepfun } from "../src/video-analysis.js";
 import { researchBilibiliVideo, resolveSourceQualityFailureProvenance, selectCaptionCues, selectRepresentativeComments, validateBilibiliWindow } from "../src/bilibili.js";
 import { resolveSourceQuality } from "../src/media-quality.js";
 
@@ -130,6 +130,7 @@ test("Step Plan sends video data URLs directly without the pay-as-you-go files e
   const previousProvider = process.env.CODEX_VIDEO_PROVIDER;
   const previousBaseUrl = process.env.STEPFUN_BASE_URL;
   const previousApiKey = process.env.STEPFUN_API_KEY;
+  const previousVideoModel = process.env.STEPFUN_VIDEO_MODEL;
   const previousFetch = globalThis.fetch;
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codex-video-mcp-test-"));
   const mediaPath = path.join(directory, "sample.mp4");
@@ -140,11 +141,13 @@ test("Step Plan sends video data URLs directly without the pay-as-you-go files e
     process.env.CODEX_VIDEO_PROVIDER = "stepfun";
     process.env.STEPFUN_BASE_URL = "https://api.stepfun.com/step_plan/v1";
     process.env.STEPFUN_API_KEY = "test-key";
+    process.env.STEPFUN_VIDEO_MODEL = "step-5-preview";
     globalThis.fetch = (async (input, init) => {
       const url = String(input);
       requestedUrls.push(url);
       assert.equal(init?.method, "POST");
       const body = JSON.parse(String(init?.body));
+      assert.equal(body.model, "step-5-preview");
       assert.equal(body.messages[0].content[0].type, "video_url");
       assert.match(body.messages[0].content[0].video_url.url, /^data:video\/mp4;base64,/);
       assert.match(body.messages[0].content[1].text, /Analysis detail: coarse pass/);
@@ -166,6 +169,44 @@ test("Step Plan sends video data URLs directly without the pay-as-you-go files e
     else process.env.STEPFUN_BASE_URL = previousBaseUrl;
     if (previousApiKey === undefined) delete process.env.STEPFUN_API_KEY;
     else process.env.STEPFUN_API_KEY = previousApiKey;
+    if (previousVideoModel === undefined) delete process.env.STEPFUN_VIDEO_MODEL;
+    else process.env.STEPFUN_VIDEO_MODEL = previousVideoModel;
+  }
+});
+
+test("official StepFun ASR model can be overridden independently of the stable default", async () => {
+  const previousBaseUrl = process.env.STEPFUN_BASE_URL;
+  const previousApiKey = process.env.STEPFUN_API_KEY;
+  const previousAsrModel = process.env.STEPFUN_ASR_MODEL;
+  const previousFetch = globalThis.fetch;
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codex-video-mcp-test-"));
+  const audioPath = path.join(directory, "sample.wav");
+
+  try {
+    await fs.writeFile(audioPath, Buffer.from("test-audio"));
+    process.env.STEPFUN_BASE_URL = "https://api.stepfun.com/v1";
+    process.env.STEPFUN_API_KEY = "test-key";
+    process.env.STEPFUN_ASR_MODEL = "stepaudio-3-asr-max";
+    globalThis.fetch = (async (input, init) => {
+      assert.equal(String(input), "https://api.stepfun.com/v1/audio/asr/sse");
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.audio.input.transcription.model, "stepaudio-3-asr-max");
+      return new Response('data: {"type":"transcript.text.done","text":"audio result"}\n\n', {
+        status: 200,
+        headers: { "Content-Type": "text/event-stream" },
+      });
+    }) as typeof fetch;
+
+    assert.equal(await transcribeAudioWithStepfun(audioPath, "audio/wav"), "audio result");
+  } finally {
+    globalThis.fetch = previousFetch;
+    await fs.rm(directory, { recursive: true, force: true });
+    if (previousBaseUrl === undefined) delete process.env.STEPFUN_BASE_URL;
+    else process.env.STEPFUN_BASE_URL = previousBaseUrl;
+    if (previousApiKey === undefined) delete process.env.STEPFUN_API_KEY;
+    else process.env.STEPFUN_API_KEY = previousApiKey;
+    if (previousAsrModel === undefined) delete process.env.STEPFUN_ASR_MODEL;
+    else process.env.STEPFUN_ASR_MODEL = previousAsrModel;
   }
 });
 
