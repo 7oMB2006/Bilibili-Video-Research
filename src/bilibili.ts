@@ -122,7 +122,7 @@ function apiError(endpoint: string, payload: unknown): Error {
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, { headers: { "User-Agent": "codex-video-mcp/0.1" } });
+  const response = await fetch(url, { headers: { "User-Agent": "bilibili-video-research-mcp/0.1" } });
   if (!response.ok) throw new Error(`Bilibili request failed with HTTP ${response.status}.`);
   return response.json() as Promise<T>;
 }
@@ -130,7 +130,7 @@ async function fetchJson<T>(url: string): Promise<T> {
 export async function resolveBvid(url: string): Promise<string> {
   const direct = url.match(/BV[0-9A-Za-z]{10}/i)?.[0];
   if (direct) return direct;
-  const response = await fetch(url, { redirect: "follow", headers: { "User-Agent": "codex-video-mcp/0.1" } });
+  const response = await fetch(url, { redirect: "follow", headers: { "User-Agent": "bilibili-video-research-mcp/0.1" } });
   const bvid = response.url.match(/BV[0-9A-Za-z]{10}/i)?.[0];
   if (!bvid) throw new Error("The Bilibili URL did not resolve to a BV video ID.");
   return bvid;
@@ -587,7 +587,7 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
         source_quality: serializeSourceQuality(sourceQuality, undefined, "not_downloaded", "Bilibili captions were available; media download was not needed."),
       });
 
-      const directory = await fs.mkdtemp(path.join(process.env.TEMP ?? process.cwd(), "codex-video-mcp-"));
+      const directory = await fs.mkdtemp(path.join(process.env.TEMP ?? process.cwd(), "bilibili-video-research-mcp-"));
       try {
         const downloaded = await downloadVideo(request.url, directory, sourceQuality);
         downloadedQuality = downloaded.quality;
@@ -611,7 +611,7 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
       }
     }
 
-    const directory = await fs.mkdtemp(path.join(process.env.TEMP ?? process.cwd(), "codex-video-mcp-"));
+    const directory = await fs.mkdtemp(path.join(process.env.TEMP ?? process.cwd(), "bilibili-video-research-mcp-"));
     try {
       const downloaded = await downloadVideo(request.url, directory, sourceQuality);
       downloadedQuality = downloaded.quality;

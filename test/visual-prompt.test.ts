@@ -132,7 +132,7 @@ test("Step Plan sends video data URLs directly without the pay-as-you-go files e
   const previousApiKey = process.env.STEPFUN_API_KEY;
   const previousVideoModel = process.env.STEPFUN_VIDEO_MODEL;
   const previousFetch = globalThis.fetch;
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codex-video-mcp-test-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "bilibili-video-research-mcp-test-"));
   const mediaPath = path.join(directory, "sample.mp4");
   const requestedUrls: string[] = [];
 
@@ -179,7 +179,7 @@ test("official StepFun ASR model can be overridden independently of the stable d
   const previousApiKey = process.env.STEPFUN_API_KEY;
   const previousAsrModel = process.env.STEPFUN_ASR_MODEL;
   const previousFetch = globalThis.fetch;
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "codex-video-mcp-test-"));
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "bilibili-video-research-mcp-test-"));
   const audioPath = path.join(directory, "sample.wav");
 
   try {
@@ -268,7 +268,7 @@ test("Bilibili research preserves metadata and comments when media analysis is u
   ];
 
   try {
-    process.env.BILIBILI_COOKIES_FILE = path.join(os.tmpdir(), "codex-video-mcp-missing-cookies.txt");
+    process.env.BILIBILI_COOKIES_FILE = path.join(os.tmpdir(), "bilibili-video-research-mcp-missing-cookies.txt");
     globalThis.fetch = (async () => new Response(JSON.stringify(responses.shift()), {
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -375,7 +375,7 @@ test("Bilibili research keeps deterministic context outside the model answer", a
 test("Bilibili research distinguishes empty context from auxiliary API failures", async () => {
   const previousCookieFile = process.env.BILIBILI_COOKIES_FILE;
   const previousFetch = globalThis.fetch;
-  const missingCookieFile = path.join(os.tmpdir(), "codex-video-mcp-missing-cookies.txt");
+  const missingCookieFile = path.join(os.tmpdir(), "bilibili-video-research-mcp-missing-cookies.txt");
   let tagPayload: unknown = { code: 0, data: [] };
   let commentPayload: unknown = { code: 0, data: { replies: [] } };
 

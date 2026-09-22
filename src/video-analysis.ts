@@ -102,7 +102,7 @@ async function createWindow(videoPath: string, startSeconds: number, endSeconds:
   if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds) || startSeconds < 0 || endSeconds <= startSeconds) {
     throw new Error("start_seconds must be >= 0 and end_seconds must be greater than start_seconds.");
   }
-  const directory = await fs.mkdtemp(path.join(tmpdir(), "codex-video-mcp-"));
+  const directory = await fs.mkdtemp(path.join(tmpdir(), "bilibili-video-research-mcp-"));
   const clipPath = path.join(directory, "window.mp4");
   try {
     const args = [
@@ -133,7 +133,7 @@ export async function createVideoWindow(videoPath: string, startSeconds: number,
 }
 
 export async function createSilentVideo(videoPath: string): Promise<{ directory: string; videoPath: string }> {
-  const directory = await fs.mkdtemp(path.join(tmpdir(), "codex-video-mcp-"));
+  const directory = await fs.mkdtemp(path.join(tmpdir(), "bilibili-video-research-mcp-"));
   const silentPath = path.join(directory, "silent.mp4");
   try {
     await execFile(getFfmpegPath(), [
@@ -148,7 +148,7 @@ export async function createSilentVideo(videoPath: string): Promise<{ directory:
 }
 
 export async function createAudioTrack(videoPath: string): Promise<{ directory: string; audioPath: string }> {
-  const directory = await fs.mkdtemp(path.join(tmpdir(), "codex-video-mcp-"));
+  const directory = await fs.mkdtemp(path.join(tmpdir(), "bilibili-video-research-mcp-"));
   const audioPath = path.join(directory, "audio.wav");
   try {
     await execFile(getFfmpegPath(), [
@@ -169,7 +169,7 @@ export async function analyzeMediaWithProvider(mediaPath: string, prompt: string
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not configured for codex-video-mcp.");
+    throw new Error("GEMINI_API_KEY is not configured for bilibili-video-research-mcp.");
   }
 
   const ai = new GoogleGenAI({ apiKey });
@@ -210,7 +210,7 @@ function stepfunBaseUrl(): string {
 
 async function stepfunRequest(pathname: string, init: RequestInit): Promise<Response> {
   const apiKey = process.env.STEPFUN_API_KEY;
-  if (!apiKey) throw new Error("STEPFUN_API_KEY is not configured for codex-video-mcp.");
+  if (!apiKey) throw new Error("STEPFUN_API_KEY is not configured for bilibili-video-research-mcp.");
   const response = await fetch(`${stepfunBaseUrl()}${pathname}`, {
     ...init,
     headers: { Authorization: `Bearer ${apiKey}`, ...(init.headers ?? {}) },
@@ -328,7 +328,7 @@ export async function analyzeTextWithProvider(prompt: string): Promise<string> {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not configured for codex-video-mcp.");
+    throw new Error("GEMINI_API_KEY is not configured for bilibili-video-research-mcp.");
   }
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
