@@ -24,6 +24,13 @@ const commonSchema = {
   media_detail: z.enum(["low", "default"]).default("default").describe("Use low for a long coarse pass; use default for movement, small objects, and precise inspection."),
 };
 
+const sourceQualitySchema = z.object({
+  profile: z.enum(["standard", "high", "custom"]).default("standard").describe("standard targets 1080p30; high targets 1440p30; custom requires explicit resolution and fps."),
+  resolution: z.enum(["720p", "1080p", "1440p", "2160p"]).optional().describe("Target source-video resolution. Overrides the profile preset."),
+  fps: z.union([z.literal(30), z.literal(60)]).optional().describe("Target source-video frame rate. Overrides the profile preset."),
+  on_unavailable: z.enum(["error", "warn"]).default("error").describe("error refuses an unavailable target instead of silently downgrading; warn allows a reported fallback."),
+}).optional().describe("Optional source acquisition quality. It affects Bilibili downloads, not local-video tools.");
+
 server.registerTool("analyze_video", {
   title: "Analyze a Video Visually",
   description: "Creates an audio-free copy of a local video and sends it to the configured video-analysis provider for visual research. Visible interfaces, code, charts, labels, and subtitles remain usable visual evidence.",
@@ -85,11 +92,12 @@ server.registerTool("analyze_bilibili_video", {
     mode: z.enum(["language", "vision", "multimodal"]).describe("language: captions then audio only; vision: silent video only; multimodal: original video with both channels."),
     media_detail: z.enum(["low", "default"]).default("default").describe("Use low for a broad long-video pass and default for close inspection."),
     include_comments: z.boolean().default(true).describe("Include untrusted community context. Fetches at most 20 most-liked root comments, presents only 3-5 representative comments, and reports empty or fetch-failed status explicitly."),
+    source_quality: sourceQualitySchema,
     start_seconds: z.number().min(0).optional().describe("Optional source-video interval start in seconds. Provide together with end_seconds."),
     end_seconds: z.number().positive().optional().describe("Optional source-video interval end in seconds. Provide together with start_seconds."),
   },
   annotations: { readOnlyHint: true },
-}, async ({ url, question, mode, media_detail, include_comments, start_seconds, end_seconds }) => {
+}, async ({ url, question, mode, media_detail, include_comments, source_quality, start_seconds, end_seconds }) => {
   try {
     return result(await researchBilibiliVideo({
       url,
@@ -97,6 +105,14 @@ server.registerTool("analyze_bilibili_video", {
       mode,
       mediaDetail: media_detail,
       includeComments: include_comments,
+      sourceQuality: source_quality
+        ? {
+          profile: source_quality.profile,
+          resolution: source_quality.resolution,
+          fps: source_quality.fps,
+          onUnavailable: source_quality.on_unavailable,
+        }
+        : undefined,
       startSeconds: start_seconds,
       endSeconds: end_seconds,
     }));

@@ -55,6 +55,10 @@ analyze_bilibili_video({
   question: "What quantitative research framework is shown on screen?",
   mode: "vision",
   media_detail: "default",
+  source_quality: {
+    profile: "high",
+    on_unavailable: "error"
+  },
   include_comments: false,
   start_seconds: 0,
   end_seconds: 321
@@ -73,7 +77,17 @@ RESEARCH PROVENANCE
   "community": "disabled",
   "community_status": "disabled",
   "tags_status": "present",
-  "timestamps": "none"
+  "timestamps": "none",
+  "source_quality": {
+    "profile": "standard",
+    "requested_resolution": "1080p",
+    "requested_fps": 30,
+    "on_unavailable": "error",
+    "status": "matched",
+    "actual_resolution": 1080,
+    "actual_fps": 30,
+    "format_id": "..."
+  }
 }
 
 VIDEO CONTEXT
@@ -341,8 +355,61 @@ StepFun references:
 | `analyze_video` | Inspect a local video visually after removing its audio track |
 | `inspect_video_window` | Inspect one precise audio-free source interval for detailed visual research |
 
-Use `media_detail: "low"` for a broad long-video pass and `"default"` for small UI
-text, code, movement, or close inspection.
+### Source quality and analysis detail
+
+`media_detail` and `source_quality` control different layers:
+
+- `media_detail` controls provider-side analysis detail after the media has been
+  acquired. Use `"low"` for a broad coarse pass and `"default"` for small UI text,
+  code, movement, or close inspection. Gemini maps `"low"` to its lower media
+  resolution level; the current StepFun adapter instead adds an explicit coarse/detail
+  instruction to the prompt. This remains a provider/model hint rather than a guarantee
+  of exact frame sampling.
+- `source_quality` controls the quality requested from Bilibili before analysis.
+  It affects `analyze_bilibili_video` downloads only, not local-video tools or a
+  language request that can use Bilibili captions without downloading media.
+
+The `source_quality` profiles are:
+
+| Profile | Target |
+| --- | --- |
+| `standard` (default) | `1080p30` |
+| `high` | `1440p30` |
+| `custom` | Explicit `resolution` (`720p`, `1080p`, `1440p`, or `2160p`) and `fps` (`30` or `60`) |
+
+Use `on_unavailable: "error"` (the default) to refuse a source below the target
+instead of silently downgrading. Use `"warn"` only when a reported lower-quality
+fallback is acceptable. If the exact target is unavailable but a source at or
+above the requested resolution and frame rate exists, the closest available source
+may be selected and its actual quality is recorded in provenance.
+
+An Agent can choose the inputs from the evidence needed by the question:
+
+| Research need | Suggested call |
+| --- | --- |
+| What the presenter says | `mode: "language"`, `media_detail: "low"`, `source_quality: { profile: "standard" }` |
+| Small UI, code, or chart text | `mode: "vision"`, `media_detail: "default"`, `source_quality: { profile: "high" }`, preferably with a focused time window |
+| Fast motion or frame-sensitive changes | `mode: "vision"`, `source_quality: { profile: "custom", resolution: "1080p", fps: 60 }` |
+| Long video with a precise visual question | First scan with `standard` and low detail, then make a second focused-window call with `high` or a custom profile |
+
+For example, a second pass for a small on-screen interface could be:
+
+```text
+analyze_bilibili_video({
+  url: "https://www.bilibili.com/video/BV...",
+  question: "What labels and parameter values are visible in this interface?",
+  mode: "vision",
+  media_detail: "default",
+  source_quality: {
+    profile: "custom",
+    resolution: "2160p",
+    fps: 30,
+    on_unavailable: "error"
+  },
+  start_seconds: 312,
+  end_seconds: 348
+})
+```
 
 For a known source interval, pass `start_seconds` and `end_seconds` together. The
 window is applied to captions when available and to the downloaded media for
