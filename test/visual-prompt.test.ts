@@ -4,7 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { analyzeMediaWithProvider, analyzeTextWithProvider, buildVisualResearchPrompt } from "../src/video-analysis.js";
-import { researchBilibiliVideo, selectCaptionCues, selectRepresentativeComments, validateBilibiliWindow } from "../src/bilibili.js";
+import { researchBilibiliVideo, resolveSourceQualityFailureProvenance, selectCaptionCues, selectRepresentativeComments, validateBilibiliWindow } from "../src/bilibili.js";
+import { resolveSourceQuality } from "../src/media-quality.js";
 
 test("visual research prompt excludes audio while retaining useful visible text", () => {
   const prompt = buildVisualResearchPrompt({
@@ -146,13 +147,14 @@ test("Step Plan sends video data URLs directly without the pay-as-you-go files e
       const body = JSON.parse(String(init?.body));
       assert.equal(body.messages[0].content[0].type, "video_url");
       assert.match(body.messages[0].content[0].video_url.url, /^data:video\/mp4;base64,/);
+      assert.match(body.messages[0].content[1].text, /Analysis detail: coarse pass/);
       return new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
     }) as typeof fetch;
 
-    const result = await analyzeMediaWithProvider(mediaPath, "Inspect this video.");
+    const result = await analyzeMediaWithProvider(mediaPath, "Inspect this video.", "low");
     assert.equal(result, "ok");
     assert.deepEqual(requestedUrls, ["https://api.stepfun.com/step_plan/v1/chat/completions"]);
   } finally {
@@ -165,6 +167,35 @@ test("Step Plan sends video data URLs directly without the pay-as-you-go files e
     if (previousApiKey === undefined) delete process.env.STEPFUN_API_KEY;
     else process.env.STEPFUN_API_KEY = previousApiKey;
   }
+});
+
+test("downloaded source quality remains visible when later media analysis fails", () => {
+  const quality = resolveSourceQuality();
+  const downloadedQuality = {
+    status: "matched" as const,
+    requestedResolution: "1080p" as const,
+    requestedFps: 30 as const,
+    onUnavailable: "error" as const,
+    actualHeight: 1080,
+    actualFps: 30,
+    formatId: "137+140",
+  };
+
+  const afterDownloadFailure = resolveSourceQualityFailureProvenance(
+    quality,
+    downloadedQuality,
+    new Error("StepFun API request failed (500)."),
+  );
+  assert.equal(afterDownloadFailure?.status, "matched");
+  assert.equal(afterDownloadFailure?.actual_resolution, 1080);
+  assert.equal(afterDownloadFailure?.actual_fps, 30);
+
+  const beforeDownloadFailure = resolveSourceQualityFailureProvenance(
+    quality,
+    undefined,
+    new Error("yt-dlp could not produce a readable video."),
+  );
+  assert.equal(beforeDownloadFailure?.status, "unavailable");
 });
 
 test("Bilibili research preserves metadata and comments when media analysis is unavailable", async () => {

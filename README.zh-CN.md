@@ -44,6 +44,10 @@ analyze_bilibili_video({
   question: "画面里展示的量化研究框架是什么？",
   mode: "vision",
   media_detail: "default",
+  source_quality: {
+    profile: "high",
+    on_unavailable: "error"
+  },
   include_comments: false,
   start_seconds: 0,
   end_seconds: 321
@@ -62,7 +66,17 @@ RESEARCH PROVENANCE
   "community": "disabled",
   "community_status": "disabled",
   "tags_status": "present",
-  "timestamps": "none"
+  "timestamps": "none",
+  "source_quality": {
+    "profile": "standard",
+    "requested_resolution": "1080p",
+    "requested_fps": 30,
+    "on_unavailable": "error",
+    "status": "matched",
+    "actual_resolution": 1080,
+    "actual_fps": 30,
+    "format_id": "..."
+  }
 }
 
 VIDEO CONTEXT
@@ -305,6 +319,57 @@ StepFun 参考：
 | `analyze_video`          | 移除音轨后，对本地视频进行视觉检查                                                                                                |
 | `inspect_video_window`   | 对精确的静音源视频区间进行细节视觉研究                                                                                              |
 
+
+### 源视频质量与分析细节
+
+`media_detail` 和 `source_quality` 控制的是不同层次：
+
+- `media_detail` 控制媒体获取之后的 Provider 分析细节。长视频粗看使用
+  `"low"`；需要辨认小型 UI 文本、代码、动作或近距离细节时使用 `"default"`。
+  Gemini 会将 `"low"` 映射到较低的媒体分辨率级别；当前 StepFun 适配器则会在
+  提示词中加入明确的粗看/常规细节指令。它仍然是 Provider 或模型的分析提示，
+  不保证精确的抽帧方式。
+- `source_quality` 控制从 Bilibili 下载源视频时请求的质量。它只影响
+  `analyze_bilibili_video` 的下载，不影响本地视频工具；如果 `language` 能直接使用
+  Bilibili 字幕而不需要下载媒体，也不会触发下载。
+
+`source_quality` 支持以下档位：
+
+| 档位 | 目标 |
+| --- | --- |
+| `standard`（默认） | `1080p30` |
+| `high` | `1440p30` |
+| `custom` | 显式指定 `resolution`（`720p`、`1080p`、`1440p` 或 `2160p`）和 `fps`（`30` 或 `60`） |
+
+默认使用 `on_unavailable: "error"`：如果源视频低于目标质量，就拒绝继续，而不是静默降级。只有在确实接受明确记录的低质量回退时，才使用 `"warn"`。如果精确目标不可用，但存在分辨率和帧率都不低于目标的源，工具可以选择最接近的可用源，并在溯源信息中记录实际质量。
+
+Agent 可以根据问题真正需要的证据选择参数：
+
+| 研究需求 | 建议调用 |
+| --- | --- |
+| 了解演讲者说了什么 | `mode: "language"`、`media_detail: "low"`、`source_quality: { profile: "standard" }` |
+| 辨认小型 UI、代码或图表文字 | `mode: "vision"`、`media_detail: "default"`、`source_quality: { profile: "high" }`，最好同时限定时间段 |
+| 研究快速运动或逐帧变化 | `mode: "vision"`、`source_quality: { profile: "custom", resolution: "1080p", fps: 60 }` |
+| 长视频中的具体视觉问题 | 先用 `standard` 和低细节粗扫，再对重点时间段使用 `high` 或 custom 档位二次研究 |
+
+例如，针对画面中的小型界面进行第二轮精看：
+
+```text
+analyze_bilibili_video({
+  url: "https://www.bilibili.com/video/BV...",
+  question: "这个界面中能看见哪些标签和参数值？",
+  mode: "vision",
+  media_detail: "default",
+  source_quality: {
+    profile: "custom",
+    resolution: "2160p",
+    fps: 30,
+    on_unavailable: "error"
+  },
+  start_seconds: 312,
+  end_seconds: 348
+})
+```
 
 长视频先粗看时使用 `media_detail: "low"`；需要辨认小型 UI 文本、代码、动作或近距离细节时用 `"default"`。
 

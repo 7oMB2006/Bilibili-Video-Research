@@ -165,7 +165,7 @@ export async function createAudioTrack(videoPath: string): Promise<{ directory: 
 export async function analyzeMediaWithProvider(mediaPath: string, prompt: string, mediaDetail: MediaDetail = "default"): Promise<string> {
   await assertReadableMedia(mediaPath);
   const provider = selectedProvider();
-  if (provider === "stepfun") return analyzeMediaWithStepfun(mediaPath, prompt);
+  if (provider === "stepfun") return analyzeMediaWithStepfun(mediaPath, prompt, mediaDetail);
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -222,18 +222,25 @@ async function stepfunRequest(pathname: string, init: RequestInit): Promise<Resp
   return response;
 }
 
-async function analyzeMediaWithStepfun(mediaPath: string, prompt: string): Promise<string> {
+function stepfunDetailInstruction(mediaDetail: MediaDetail): string {
+  return mediaDetail === "low"
+    ? "Analysis detail: coarse pass. Scan the supplied video broadly, identify the most relevant moments, and avoid exhaustive frame-by-frame inspection or tiny-text transcription unless it is necessary to answer the question."
+    : "Analysis detail: default pass. Inspect the supplied video with normal detail and use visible text, code, charts, labels, movement, and temporal order when they are relevant to the question.";
+}
+
+async function analyzeMediaWithStepfun(mediaPath: string, prompt: string, mediaDetail: MediaDetail): Promise<string> {
   const sourceMimeType = mediaMimeType(mediaPath);
   if (sourceMimeType.startsWith("audio/")) {
     const transcript = await transcribeAudioWithStepfun(mediaPath, sourceMimeType);
     return analyzeTextWithStepfun(`${prompt}\n\nASR TRANSCRIPT (language evidence):\n${transcript}`);
   }
+  const detailedPrompt = `${stepfunDetailInstruction(mediaDetail)}\n\n${prompt}`;
   if (stepfunBaseUrl().toLowerCase().includes("step_plan")) {
     const bytes = await fs.readFile(mediaPath);
     const dataUrl = `data:${sourceMimeType};base64,${bytes.toString("base64")}`;
     return analyzeContentWithStepfun([
       { type: "video_url", video_url: { url: dataUrl } },
-      { type: "text", text: prompt },
+      { type: "text", text: detailedPrompt },
     ]);
   }
   const bytes = await fs.readFile(mediaPath);
@@ -248,7 +255,7 @@ async function analyzeMediaWithStepfun(mediaPath: string, prompt: string): Promi
   try {
     return await analyzeContentWithStepfun([
       { type: "video_url", video_url: { url: `stepfile://${fileId}` } },
-      { type: "text", text: prompt },
+      { type: "text", text: detailedPrompt },
     ]);
   } finally {
     await stepfunRequest(`/files/${fileId}`, { method: "DELETE" }).catch(() => undefined);

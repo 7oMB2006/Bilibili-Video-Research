@@ -4,6 +4,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { execFile as execFileCallback } from "node:child_process";
 import { analyzeMediaWithProvider, analyzeTextWithProvider, createAudioTrack, createVideoWindow, createSilentVideo, createSilentWindow, getConfiguredVideoProvider, getFfmpegPath, removeTemporaryWindow, type MediaDetail } from "./video-analysis.js";
+import { assessDownloadedQuality, parseYtDlpMetadata, resolveSourceQuality, selectYtDlpFormat, type ResolvedSourceQuality, type SourceQualityReport, type SourceQualityRequest } from "./media-quality.js";
 
 const execFile = promisify(execFileCallback);
 const require = createRequire(import.meta.url);
@@ -84,6 +85,7 @@ interface EvidenceProvenance {
   community_status: ContextStatus;
   tags_status: FieldStatus;
   timestamps: "caption_cues" | "model_observations" | "none";
+  source_quality: SourceQualityProvenance;
 }
 
 export interface BilibiliResearchRequest {
@@ -94,6 +96,24 @@ export interface BilibiliResearchRequest {
   includeComments: boolean;
   startSeconds?: number;
   endSeconds?: number;
+  sourceQuality?: SourceQualityRequest;
+}
+
+interface SourceQualityProvenance {
+  profile: ResolvedSourceQuality["profile"];
+  requested_resolution: ResolvedSourceQuality["resolution"];
+  requested_fps: ResolvedSourceQuality["fps"];
+  on_unavailable: ResolvedSourceQuality["onUnavailable"];
+  status: "not_downloaded" | "matched" | "degraded" | "unavailable";
+  actual_resolution?: number;
+  actual_fps?: number;
+  format_id?: string;
+  reason?: string;
+}
+
+interface DownloadedVideo {
+  path: string;
+  quality: SourceQualityReport;
 }
 
 function apiError(endpoint: string, payload: unknown): Error {
@@ -371,6 +391,38 @@ function extractDetailWindows(coarse: string, duration: number): Array<[number, 
   return points.map((point) => [Math.max(0, point - 45), Math.min(duration, point + 135)]);
 }
 
+function serializeSourceQuality(
+  quality: ResolvedSourceQuality,
+  report?: SourceQualityReport,
+  status: SourceQualityProvenance["status"] = "not_downloaded",
+  reason?: string,
+): SourceQualityProvenance {
+  return {
+    profile: quality.profile,
+    requested_resolution: quality.resolution,
+    requested_fps: quality.fps,
+    on_unavailable: quality.onUnavailable,
+    status: report?.status ?? status,
+    ...(report?.actualHeight === undefined ? {} : { actual_resolution: report.actualHeight }),
+    ...(report?.actualFps === undefined ? {} : { actual_fps: report.actualFps }),
+    ...(report?.formatId ? { format_id: report.formatId } : {}),
+    ...(report?.degradationReason || reason ? { reason: report?.degradationReason ?? reason } : {}),
+  };
+}
+
+export function resolveSourceQualityFailureProvenance(
+  quality: ResolvedSourceQuality,
+  downloadedQuality: SourceQualityReport | undefined,
+  error: unknown,
+): SourceQualityProvenance | undefined {
+  const message = error instanceof Error ? error.message : String(error);
+  if (downloadedQuality) return serializeSourceQuality(quality, downloadedQuality);
+  if (/source quality|yt-dlp/i.test(message)) {
+    return serializeSourceQuality(quality, undefined, "unavailable", message.slice(0, 300));
+  }
+  return undefined;
+}
+
 async function analyzeLongVisionVideo(source: string, duration: number, context: string, question: string, mediaDetail: MediaDetail): Promise<string> {
   const coarseSilent = await createSilentVideo(source);
   try {
@@ -397,7 +449,7 @@ async function analyzeLongVisionVideo(source: string, duration: number, context:
   }
 }
 
-async function downloadVideo(url: string, directory: string): Promise<string> {
+async function ytDlpCredentialArgs(): Promise<string[]> {
   const cookieFile = process.env.BILIBILI_COOKIES_FILE?.trim();
   const cookieBrowser = process.env.BILIBILI_COOKIES_FROM_BROWSER?.trim().toLowerCase();
   if (cookieFile) {
@@ -410,32 +462,78 @@ async function downloadVideo(url: string, directory: string): Promise<string> {
   if (cookieBrowser && !["edge", "chrome", "firefox", "brave"].includes(cookieBrowser)) {
     throw new Error("BILIBILI_COOKIES_FROM_BROWSER must name edge, chrome, firefox, or brave.");
   }
+  return cookieFile
+    ? ["--cookies", path.resolve(cookieFile)]
+    : cookieBrowser
+      ? ["--cookies-from-browser", cookieBrowser]
+      : [];
+}
+
+async function probeVideoFormats(url: string, credentialArgs: string[]): Promise<ReturnType<typeof parseYtDlpMetadata>> {
+  const { stdout } = await execFile(ytDlpPath, [
+    "--no-playlist", "--no-warnings", "--restrict-filenames", "--no-continue",
+    "--skip-download", "--dump-single-json",
+    ...credentialArgs,
+    url,
+  ], { maxBuffer: 1024 * 1024 * 16 });
+  return parseYtDlpMetadata(stdout);
+}
+
+async function downloadVideo(url: string, directory: string, quality: ResolvedSourceQuality): Promise<DownloadedVideo> {
+  const credentialArgs = await ytDlpCredentialArgs();
+  const availableMetadata = await probeVideoFormats(url, credentialArgs);
+  const selection = selectYtDlpFormat(availableMetadata, quality);
+  let lastError: unknown;
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     const prefix = `source-${attempt}`;
-    await execFile(ytDlpPath, [
-      "--no-playlist", "--no-warnings", "--restrict-filenames", "--no-continue",
-      "--ffmpeg-location", getFfmpegPath(),
-      ...(cookieFile ? ["--cookies", path.resolve(cookieFile)] : cookieBrowser ? ["--cookies-from-browser", cookieBrowser] : []),
-      "-f", "bv*+ba/b", "--merge-output-format", "mp4", "-o", path.join(directory, `${prefix}.%(ext)s`), url,
-    ], { maxBuffer: 1024 * 1024 * 8 });
-    const files = await fs.readdir(directory);
-    const downloaded = files.find((name) => name.startsWith(prefix) && /\.(mp4|mkv|webm|mov)$/i.test(name));
-    if (!downloaded) continue;
-    const mediaPath = path.join(directory, downloaded);
     try {
+      const { stdout } = await execFile(ytDlpPath, [
+        "--no-playlist", "--no-warnings", "--restrict-filenames", "--no-continue",
+        "--ffmpeg-location", getFfmpegPath(),
+        ...credentialArgs,
+        "-f", selection.selector,
+        "--merge-output-format", "mp4",
+        "--print-json",
+        "-o", path.join(directory, `${prefix}.%(ext)s`),
+        url,
+      ], { maxBuffer: 1024 * 1024 * 16 });
+      const files = await fs.readdir(directory);
+      const downloaded = files.find((name) => name.startsWith(prefix) && /\.(mp4|mkv|webm|mov)$/i.test(name));
+      if (!downloaded) {
+        throw new Error("yt-dlp completed without producing a readable video file.");
+      }
+      const mediaPath = path.join(directory, downloaded);
       await execFile(getFfmpegPath(), ["-hide_banner", "-v", "error", "-i", mediaPath, "-t", "1", "-f", "null", "-"], { maxBuffer: 1024 * 1024 });
-      return mediaPath;
-    } catch {
-      await fs.rm(mediaPath, { force: true });
+      const downloadedMetadata = (() => {
+        try {
+          return parseYtDlpMetadata(stdout);
+        } catch {
+          return availableMetadata;
+        }
+      })();
+      const qualityReport = assessDownloadedQuality(downloadedMetadata, quality, selection);
+      if (quality.onUnavailable === "error" && qualityReport.status === "degraded") {
+        throw new Error(`Downloaded media quality was below the requested ${quality.resolution}@${quality.fps}fps: ${qualityReport.degradationReason ?? "unknown reason"}. Set source_quality.on_unavailable to warn to continue.`);
+      }
+      return { path: mediaPath, quality: qualityReport };
+    } catch (error) {
+      lastError = error;
+      const files = await fs.readdir(directory).catch(() => []);
+      await Promise.all(files
+        .filter((name) => name.startsWith(prefix))
+        .map((name) => fs.rm(path.join(directory, name), { force: true })));
     }
   }
-  throw new Error("yt-dlp could not produce a readable video after two fresh download attempts.");
+  const detail = lastError instanceof Error ? ` ${lastError.message}` : "";
+  throw new Error(`yt-dlp could not produce a readable video after two fresh download attempts.${detail}`);
 }
 
 export async function researchBilibiliVideo(request: BilibiliResearchRequest): Promise<string> {
   const bvid = await resolveBvid(request.url);
   const video = await getVideo(bvid);
+  const sourceQuality = resolveSourceQuality(request.sourceQuality);
+  let downloadedQuality: SourceQualityReport | undefined;
   const startSeconds = request.startSeconds;
   const endSeconds = request.endSeconds;
   validateBilibiliWindow(video.durationSeconds, startSeconds, endSeconds);
@@ -459,6 +557,7 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
     community_status: comments.status,
     tags_status: tagContext.status,
     timestamps: hasWindow && request.mode !== "language" ? "model_observations" : "none",
+    source_quality: serializeSourceQuality(sourceQuality),
   };
   const finish = (analysis: string, updated?: Partial<EvidenceProvenance>) => [
     "RESEARCH PROVENANCE",
@@ -472,7 +571,11 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
 
   const finishUnavailable = (error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
-    return finish(`Media analysis unavailable: ${message.slice(0, 500)}`, { analysis: "unavailable" });
+    const sourceQualityFailure = resolveSourceQualityFailureProvenance(sourceQuality, downloadedQuality, error);
+    return finish(`Media analysis unavailable: ${message.slice(0, 500)}`, {
+      analysis: "unavailable",
+      ...(sourceQualityFailure ? { source_quality: sourceQualityFailure } : {}),
+    });
   };
 
   try {
@@ -481,18 +584,21 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
       if (captions) return finish(await analyzeTextWithProvider(languagePrompt(context, request.question, captions.text)), {
         language: "bilibili_caption",
         timestamps: captions.hasTimestamps ? "caption_cues" : "none",
+        source_quality: serializeSourceQuality(sourceQuality, undefined, "not_downloaded", "Bilibili captions were available; media download was not needed."),
       });
 
       const directory = await fs.mkdtemp(path.join(process.env.TEMP ?? process.cwd(), "codex-video-mcp-"));
       try {
-        const source = await downloadVideo(request.url, directory);
-        const sourceWindow = hasWindow ? await createVideoWindow(source, startSeconds, endSeconds) : undefined;
+        const downloaded = await downloadVideo(request.url, directory, sourceQuality);
+        downloadedQuality = downloaded.quality;
+        const sourceWindow = hasWindow ? await createVideoWindow(downloaded.path, startSeconds, endSeconds) : undefined;
         try {
-          const audio = await createAudioTrack(sourceWindow?.clipPath ?? source);
+          const audio = await createAudioTrack(sourceWindow?.clipPath ?? downloaded.path);
           try {
             return finish(await analyzeMediaWithProvider(audio.audioPath, languagePrompt(context, request.question, "No Bilibili captions were available. Transcribe the supplied audio."), request.mediaDetail), {
               language: getConfiguredVideoProvider() === "gemini" ? "gemini_audio" : "stepfun_asr",
               timestamps: "none",
+              source_quality: serializeSourceQuality(sourceQuality, downloaded.quality),
             });
           } finally {
             await removeTemporaryWindow(audio.directory);
@@ -507,24 +613,31 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
 
     const directory = await fs.mkdtemp(path.join(process.env.TEMP ?? process.cwd(), "codex-video-mcp-"));
     try {
-      const source = await downloadVideo(request.url, directory);
+      const downloaded = await downloadVideo(request.url, directory, sourceQuality);
+      downloadedQuality = downloaded.quality;
       if (request.mode === "vision") {
         if (!hasWindow && video.durationSeconds >= LONG_VIDEO_THRESHOLD_SECONDS) {
-          return finish(await analyzeLongVisionVideo(source, video.durationSeconds, context, request.question, request.mediaDetail));
+          return finish(await analyzeLongVisionVideo(downloaded.path, video.durationSeconds, context, request.question, request.mediaDetail), {
+            source_quality: serializeSourceQuality(sourceQuality, downloaded.quality),
+          });
         }
         const silent = hasWindow
-          ? await createSilentWindow(source, startSeconds, endSeconds)
-          : await createSilentVideo(source);
+          ? await createSilentWindow(downloaded.path, startSeconds, endSeconds)
+          : await createSilentVideo(downloaded.path);
         try {
           const silentPath = "clipPath" in silent ? silent.clipPath : silent.videoPath;
-          return finish(await analyzeMediaWithProvider(silentPath, visionPrompt(context, request.question, startSeconds, endSeconds), request.mediaDetail));
+          return finish(await analyzeMediaWithProvider(silentPath, visionPrompt(context, request.question, startSeconds, endSeconds), request.mediaDetail), {
+            source_quality: serializeSourceQuality(sourceQuality, downloaded.quality),
+          });
         } finally {
           await removeTemporaryWindow(silent.directory);
         }
       }
-      const sourceWindow = hasWindow ? await createVideoWindow(source, startSeconds, endSeconds) : undefined;
+      const sourceWindow = hasWindow ? await createVideoWindow(downloaded.path, startSeconds, endSeconds) : undefined;
       try {
-        return finish(await analyzeMediaWithProvider(sourceWindow?.clipPath ?? source, multimodalPrompt(context, request.question, startSeconds, endSeconds), request.mediaDetail));
+        return finish(await analyzeMediaWithProvider(sourceWindow?.clipPath ?? downloaded.path, multimodalPrompt(context, request.question, startSeconds, endSeconds), request.mediaDetail), {
+          source_quality: serializeSourceQuality(sourceQuality, downloaded.quality),
+        });
       } finally {
         if (sourceWindow) await removeTemporaryWindow(sourceWindow.directory);
       }
