@@ -491,6 +491,40 @@ BILIBILI_COOKIES_FILE=/absolute/path/to/cookies.txt
 `BILIBILI_COOKIES_FROM_BROWSER=edge` (or `chrome`, `firefox`, `brave`). Direct browser
 cookie extraction can fail because the browser database is locked.
 
+### Optional Bilibili login session
+
+Ordinary public videos are attempted anonymously first. Configure a logged-in
+Bilibili session only when anonymous access fails or cannot expose the source
+quality you need; a Cookie file is not required for normal public videos.
+
+1. Sign in to Bilibili in your browser.
+2. Use a trusted local cookie exporter that produces the Netscape/Mozilla
+   `cookies.txt` format. `Get cookies.txt LOCALLY` is one possible browser
+   extension; install extensions only from an official browser store and prefer
+   exporting the current Bilibili site rather than all sites.
+3. Save the file somewhere private, for example:
+
+   ```text
+   C:/Users/<username>/Documents/bilibili/cookies.txt
+   ```
+
+4. Tell your local agent the file path only. Do not paste `SESSDATA`, `bili_jct`,
+   or the contents of the Cookie file into chat. The agent can set:
+
+   ```env
+   BILIBILI_COOKIES_FILE=C:/Users/<username>/Documents/bilibili/cookies.txt
+   ```
+
+5. Restart the MCP client and retry the request. If the client and browser share
+   the same local profile, `BILIBILI_COOKIES_FROM_BROWSER=edge` (or `chrome`,
+   `firefox`, `brave`) is an alternative, but browser database locks can make
+   explicit export files more reliable.
+
+Treat the exported file as a login credential: never commit or upload it, and
+remove it from `.env` and local storage when it is no longer needed. A Cookie
+only supplies the access available to the signed-in account; it does not bypass
+paid, private, or otherwise restricted content.
+
 ## License
 
 [MIT](./LICENSE)

@@ -426,6 +426,28 @@ BILIBILI_COOKIES_FILE=/absolute/path/to/cookies.txt
 
 `BILIBILI_COOKIES_FILE` 优先于可选的旧设置 `BILIBILI_COOKIES_FROM_BROWSER=edge`（也可以是 `chrome`、`firefox`、`brave`）。直接读取浏览器 cookie 可能因数据库被锁定而失败。
 
+### 可选的 Bilibili 登录态配置
+
+普通公开视频会先尝试匿名访问。只有在匿名访问失败，或匿名状态无法获得你需要的源视频画质时，才需要配置已登录的 Bilibili 账户；普通公开视频不要求 Cookie。
+
+1. 在浏览器中登录 Bilibili。
+2. 使用可信的本地 Cookie 导出工具，将当前站点的 Cookie 导出为 Netscape/Mozilla 格式的 `cookies.txt`。`Get cookies.txt LOCALLY` 是一种可选的浏览器扩展；请只从浏览器官方扩展商店安装，并优先只导出当前 Bilibili 站点，而不是所有网站。
+3. 将文件保存到本地私密位置，例如：
+
+   ```text
+   C:/Users/<username>/Documents/bilibili/cookies.txt
+   ```
+
+4. 只把文件路径告诉本地 Agent。不要将 `SESSDATA`、`bili_jct` 或 Cookie 文件内容粘贴到聊天中。Agent 可以在 `.env` 中设置：
+
+   ```env
+   BILIBILI_COOKIES_FILE=C:/Users/<username>/Documents/bilibili/cookies.txt
+   ```
+
+5. 重启 MCP 客户端并重试。如果客户端和浏览器使用同一台机器上的同一个配置文件，也可以设置 `BILIBILI_COOKIES_FROM_BROWSER=edge`（或 `chrome`、`firefox`、`brave`）；但浏览器数据库可能被锁定，因此显式导出的文件通常更稳定。
+
+请将导出的文件视为登录凭证：不要提交到 Git、上传到云端，也不要发给其他人；不再需要时，从 `.env` 和本地存储中移除。Cookie 只能提供当前登录账户本身拥有的访问权限，不能绕过付费、私密或其他受限内容。
+
 ## 许可证
 
 [MIT](./LICENSE)
