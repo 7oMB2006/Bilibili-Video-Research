@@ -498,9 +498,12 @@ Bilibili session only when anonymous access fails or cannot expose the source
 quality you need; a Cookie file is not required for normal public videos.
 
 1. Sign in to Bilibili in your browser.
-2. Use a trusted local cookie exporter that produces the Netscape/Mozilla
-   `cookies.txt` format. `Get cookies.txt LOCALLY` is one possible browser
-   extension; install extensions only from an official browser store and prefer
+2. Use a trusted local cookie exporter that produces a `cookies.txt` file in the
+   standard Netscape/Mozilla format. `Get cookies.txt LOCALLY` is one possible
+   extension: Chrome, Edge, and Brave use its Chrome Web Store version, while
+   Firefox uses its Firefox Add-ons version. If your browser cannot install this
+   extension, use another trusted local exporter that can generate the same
+   format. Install extensions only from an official browser store and prefer
    exporting the current Bilibili site rather than all sites.
 3. Save the file somewhere private, for example:
 
