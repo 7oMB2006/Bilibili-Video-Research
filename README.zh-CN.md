@@ -285,6 +285,35 @@ DSH 参考：
 在作者的实际使用中，`step-3.7-flash` 的处理速度也比较适合承担 MCP 中由 Agent
 反复调用的媒体理解链路。
 
+#### 新一代 StepFun 模型兼容性测试
+
+稳定默认值仍然是：视频理解使用 `step-3.7-flash`，无字幕时的 ASR 回退使用
+`stepaudio-2.5-asr`。下面的配置仅用于跟进新模型、验证适配器兼容性和进行
+烟囱测试，不是推荐用户修改默认值。如果账户中提供 `step-5-preview`，可以不
+改变 MCP 协议进行测试：
+
+```env
+STEPFUN_VIDEO_MODEL=step-5-preview
+```
+
+当前 StepFun 适配器已经通过烟囱测试，可以使用 Step Plan 的
+`chat/completions` `video_url` 路径调用这个模型。它只是兼容性测试配置，不会
+成为项目默认值。StepAudio 3 ASR 可以在账户提供该模型时，通过官方开放平台 API
+进行测试：
+
+```env
+STEPFUN_BASE_URL=https://api.stepfun.com/v1
+STEPFUN_ASR_MODEL=stepaudio-3-asr-max
+```
+
+当前适配器已经通过烟囱测试，确认这个模型能够接受现有 `/audio/asr/sse` 请求
+格式；这只是接口兼容性验证，不代表已经完成转写质量基准测试，也不代表它应该
+替换稳定默认值。不要把官方开放平台的模型配置与 Step Plan 的 Base URL 或凭据
+混用。
+
+完整的跨 Provider 历史测试记录见
+[模型兼容性测试历史](./docs/model-compatibility.md)。
+
 根据账户渠道选择相应的 StepFun base URL：
 
 
