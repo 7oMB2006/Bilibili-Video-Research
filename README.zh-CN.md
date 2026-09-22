@@ -431,7 +431,7 @@ BILIBILI_COOKIES_FILE=/absolute/path/to/cookies.txt
 普通公开视频会先尝试匿名访问。只有在匿名访问失败，或匿名状态无法获得你需要的源视频画质时，才需要配置已登录的 Bilibili 账户；普通公开视频不要求 Cookie。
 
 1. 在浏览器中登录 Bilibili。
-2. 使用可信的本地 Cookie 导出工具，将当前站点的 Cookie 导出为 Netscape/Mozilla 格式的 `cookies.txt`。`Get cookies.txt LOCALLY` 是一种可选的浏览器扩展；请只从浏览器官方扩展商店安装，并优先只导出当前 Bilibili 站点，而不是所有网站。
+2. 使用可信的本地 Cookie 导出工具，将当前站点的 Cookie 导出为标准 `cookies.txt`（通常称为 Netscape/Mozilla 格式）。`Get cookies.txt LOCALLY` 是一种可选的浏览器扩展：Chrome、Edge、Brave 等 Chromium 浏览器使用 Chrome Web Store 版本；Firefox 使用 Firefox Add-ons 版本。若当前浏览器无法安装该扩展，也可以使用其他可信的本地 Cookie 导出工具，只要能生成同样格式的 `cookies.txt` 即可。请只从浏览器官方扩展商店安装，并优先只导出当前 Bilibili 站点，而不是所有网站。
 3. 将文件保存到本地私密位置，例如：
 
    ```text
