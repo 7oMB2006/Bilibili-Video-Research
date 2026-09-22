@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createSilentVideo, analyzeWithProvider, createSilentWindow, removeTemporaryWindow } from "./video-analysis.js";
 import { researchBilibiliVideo } from "./bilibili.js";
 
-const server = new McpServer({ name: "codex-video-mcp", version: "0.1.0" });
+const server = new McpServer({ name: "bilibili-video-research-mcp", version: "0.1.0" });
 
 function result(text: string) {
   return { content: [{ type: "text" as const, text }] };

@@ -144,21 +144,21 @@ Copy-Item .env.example .env
 ## 客户端配置
 
 服务器在 Codex 和 OpenCode 中使用相同的本地 stdio MCP 传输方式，区别只在
-客户端配置语法。项目最初从 Codex 开始，因此服务器名称和示例使用
-`codex_video`；但这个 MCP 本身并不只面向 Codex。
+客户端配置语法。默认客户端配置键使用项目中性的
+`bilibili_video_research`，与具体使用它的 Agent 或 Harness 无关。
 
 ### Codex（Windows）
 
 在 `%USERPROFILE%\.codex\config.toml` 中，将下方每个 `<PROJECT_DIR>` 替换为仓库克隆目录的绝对路径，例如 `C:\Users\you\projects\Bilibili-Video-Research`。
 
 ```toml
-[mcp_servers.codex_video]
+[mcp_servers.bilibili_video_research]
 command = "<PROJECT_DIR>\\node_modules\\.bin\\tsx.cmd"
 args = ["<PROJECT_DIR>\\src\\index.ts"]
 startup_timeout_sec = 120
 tool_timeout_sec = 240
 
-[mcp_servers.codex_video.env]
+[mcp_servers.bilibili_video_research.env]
 DOTENV_CONFIG_PATH = "<PROJECT_DIR>\\.env"
 ```
 
@@ -174,7 +174,7 @@ DOTENV_CONFIG_PATH = "<PROJECT_DIR>\\.env"
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "codex_video": {
+    "bilibili_video_research": {
       "type": "local",
       "enabled": true,
       "command": [

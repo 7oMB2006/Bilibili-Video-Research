@@ -175,9 +175,8 @@ committed. The default configuration uses StepFun's official Open Platform API.
 ## Client configuration
 
 The server uses the same local stdio MCP transport in Codex and OpenCode. Only the
-client-side configuration syntax differs. The repository started from Codex, which
-is why the server name and examples use `codex_video`; the MCP itself is not
-Codex-only.
+client-side configuration syntax differs. The canonical client configuration key is
+`bilibili_video_research`, independent of the agent or harness using the MCP.
 
 ### Codex (Windows)
 
@@ -185,13 +184,13 @@ In `%USERPROFILE%\.codex\config.toml`, replace every `<PROJECT_DIR>` below with 
 absolute path to your clone, for example `C:\Users\you\projects\Bilibili-Video-Research`.
 
 ```toml
-[mcp_servers.codex_video]
+[mcp_servers.bilibili_video_research]
 command = "<PROJECT_DIR>\\node_modules\\.bin\\tsx.cmd"
 args = ["<PROJECT_DIR>\\src\\index.ts"]
 startup_timeout_sec = 120
 tool_timeout_sec = 240
 
-[mcp_servers.codex_video.env]
+[mcp_servers.bilibili_video_research.env]
 DOTENV_CONFIG_PATH = "<PROJECT_DIR>\\.env"
 ```
 
@@ -214,7 +213,7 @@ add the local MCP server. On Windows, `<PROJECT_DIR>` should be an absolute path
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "codex_video": {
+    "bilibili_video_research": {
       "type": "local",
       "enabled": true,
       "command": [
