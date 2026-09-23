@@ -290,24 +290,40 @@ DSH references:
 
 ### Step Code
 
-Step Code discovers local MCP servers from `~/.stepcode/config.toml`. Register this
-server with its built-in command (replace `<PROJECT_DIR>` with the absolute path to
-your clone; use `tsx.cmd` on Windows, `tsx` on Linux/WSL):
+Step Code reads global MCP servers from `~/.stepcode/config.toml` by default. It can
+import MCP entries from Codex or Claude Code on first launch, so check `step mcp list`
+before adding this server to avoid a duplicate.
+
+The BVR server requires Node.js 24 or newer and `npm ci` in the cloned project
+directory. Run Step Code and the MCP server in the same environment. Replace
+`<PROJECT_DIR>` below with the clone's absolute path.
 
 ```powershell
-step mcp add bilibili_video_research --env DOTENV_CONFIG_PATH=<PROJECT_DIR>\.env -- <PROJECT_DIR>\node_modules\.bin\tsx.cmd <PROJECT_DIR>\src\index.ts
+step mcp add bilibili_video_research --env "DOTENV_CONFIG_PATH=<PROJECT_DIR>\.env" -- "<PROJECT_DIR>\node_modules\.bin\tsx.cmd" "<PROJECT_DIR>\src\index.ts"
 ```
 
-That writes a `[mcp_servers.bilibili_video_research]` entry into
-`~/.stepcode/config.toml`. Restart Step Code and confirm with `step mcp list`. Keep
-provider keys in the BVR `.env`, never in the config. One call can combine metadata,
-download, FFmpeg, upload, and inference; for long videos raise the tool timeout as you
-would for Codex.
+On Linux or WSL, run the corresponding command in that environment and use its
+absolute project path:
 
-Note (Linux/WSL): Step Code expects `fd` on the host (`apt install fd-find` on
-Debian/Ubuntu); without it the first launch stalls while downloading `fd`. It runs on
-Node. The provider / Step Plan settings and the optional login-session setup from
-earlier sections apply unchanged.
+```bash
+step mcp add bilibili_video_research --env "DOTENV_CONFIG_PATH=<PROJECT_DIR>/.env" -- "<PROJECT_DIR>/node_modules/.bin/tsx" "<PROJECT_DIR>/src/index.ts"
+```
+
+On Windows, use the PowerShell command above. For WSL, install Node.js and run
+`npm ci` inside WSL, then use the Linux command and WSL paths; do not mix Windows and
+WSL paths. No extra `fd` installation is required for this MCP server.
+
+Restart Step Code and confirm with `step mcp list`. Keep provider keys in the BVR
+`.env`, never in the Step Code config. Step Code's default per-tool timeout is 300
+seconds. To increase it for long videos, add or change `tool_timeout_sec` in the
+existing server entry in `~/.stepcode/config.toml`, for example:
+
+```toml
+tool_timeout_sec = 600
+```
+
+The provider / Step Plan settings and optional login-session setup from earlier
+sections apply unchanged.
 
 Step Code references:
 

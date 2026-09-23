@@ -247,15 +247,29 @@ DSH 参考：
 
 ### Step Code（阶跃 Step Code）
 
-Step Code 从 `~/.stepcode/config.toml` 读取本地 MCP server。用其自带命令注册本 server（`<PROJECT_DIR>` 换成你 clone 的绝对路径；Windows 用 `tsx.cmd`，Linux/WSL 用 `tsx`）：
+Step Code 默认从 `~/.stepcode/config.toml` 读取全局 MCP server。首次启动时也可以导入 Codex 或 Claude Code 中已有的 MCP 配置；添加前先运行 `step mcp list`，避免重复注册。
+
+BVR 服务端需要 Node.js 24 或更新版本，并且要在克隆目录运行过 `npm ci`。Step Code 与 MCP 服务端应运行在同一环境中。将下面的 `<PROJECT_DIR>` 替换为仓库克隆目录的绝对路径。
 
 ```powershell
-step mcp add bilibili_video_research --env DOTENV_CONFIG_PATH=<PROJECT_DIR>\.env -- <PROJECT_DIR>\node_modules\.bin\tsx.cmd <PROJECT_DIR>\src\index.ts
+step mcp add bilibili_video_research --env "DOTENV_CONFIG_PATH=<PROJECT_DIR>\.env" -- "<PROJECT_DIR>\node_modules\.bin\tsx.cmd" "<PROJECT_DIR>\src\index.ts"
 ```
 
-这会在 `~/.stepcode/config.toml` 写入 `[mcp_servers.bilibili_video_research]`。重启 Step Code，用 `step mcp list` 确认。provider key 放在 BVR 的 `.env`，别写进 config。一次调用可能串起元数据、下载、FFmpeg、上传与推理；长视频请像 Codex 那样调大 tool 超时。
+Linux 或 WSL 环境请在对应环境中运行以下命令，并使用该环境里的绝对路径：
 
-注意（Linux/WSL）：Step Code 需要宿主机有 `fd`（Debian/Ubuntu `apt install fd-find`），否则首次启动会卡在下载 `fd`。它跑在 Node 上。前面的 provider / Step Plan 设置与可选的登录态配置同样适用。
+```bash
+step mcp add bilibili_video_research --env "DOTENV_CONFIG_PATH=<PROJECT_DIR>/.env" -- "<PROJECT_DIR>/node_modules/.bin/tsx" "<PROJECT_DIR>/src/index.ts"
+```
+
+Windows 请使用上面的 PowerShell 命令。若在 WSL 中运行 Step Code，请在 WSL 内安装 Node.js 并运行 `npm ci`，再使用 Linux 命令和 WSL 路径；不要混用 Windows 与 WSL 路径。本 MCP 服务无需额外安装 `fd`。
+
+重启 Step Code 后运行 `step mcp list` 确认。Provider Key 放在 BVR 的 `.env`，不要写进 Step Code 配置。Step Code 的单次工具调用默认超时为 300 秒；长视频需要更长时间时，可在 `~/.stepcode/config.toml` 中已生成的服务器配置里添加或调整 `tool_timeout_sec`，例如：
+
+```toml
+tool_timeout_sec = 600
+```
+
+前文的 Provider / Step Plan 设置与可选登录态配置同样适用。
 
 Step Code 参考：
 
