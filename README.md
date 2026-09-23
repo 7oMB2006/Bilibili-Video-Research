@@ -288,6 +288,47 @@ DSH references:
 - [DSH MCP client](https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/mcp/mcp-client)
 - [Third-party MCP setup guide](https://github.com/deepseek-ai/deepseek-harness/tree/main/docs/user/guide)
 
+### Step Code
+
+Step Code reads global MCP servers from `~/.stepcode/config.toml` by default. It can
+import MCP entries from Codex or Claude Code on first launch, so check `step mcp list`
+before adding this server to avoid a duplicate.
+
+The BVR server requires Node.js 24 or newer and `npm ci` in the cloned project
+directory. Run Step Code and the MCP server in the same environment. Replace
+`<PROJECT_DIR>` below with the clone's absolute path.
+
+```powershell
+step mcp add bilibili_video_research --env "DOTENV_CONFIG_PATH=<PROJECT_DIR>\.env" -- "<PROJECT_DIR>\node_modules\.bin\tsx.cmd" "<PROJECT_DIR>\src\index.ts"
+```
+
+On Linux or WSL, run the corresponding command in that environment and use its
+absolute project path:
+
+```bash
+step mcp add bilibili_video_research --env "DOTENV_CONFIG_PATH=<PROJECT_DIR>/.env" -- "<PROJECT_DIR>/node_modules/.bin/tsx" "<PROJECT_DIR>/src/index.ts"
+```
+
+On Windows, use the PowerShell command above. For WSL, install Node.js and run
+`npm ci` inside WSL, then use the Linux command and WSL paths; do not mix Windows and
+WSL paths. No extra `fd` installation is required for this MCP server.
+
+Restart Step Code and confirm with `step mcp list`. Keep provider keys in the BVR
+`.env`, never in the Step Code config. Step Code's default per-tool timeout is 300
+seconds. To increase it for long videos, add or change `tool_timeout_sec` in the
+existing server entry in `~/.stepcode/config.toml`, for example:
+
+```toml
+tool_timeout_sec = 600
+```
+
+The provider / Step Plan settings and optional login-session setup from earlier
+sections apply unchanged.
+
+Step Code references:
+
+- [Step Code](https://github.com/stepfun-ai/Step-Code)
+
 ## Client-side packaging
 
 This repository provides the MCP layer and does not require a specific agent or harness. If you use Codex or OpenCode, you can use the documented tools and research workflow as a reference and wrap them as a client-specific skill for easier reuse. If you use a personal agent or another harness, you can package the MCP tools according to its own extension model, such as a skill, plugin, command, or system prompt.
