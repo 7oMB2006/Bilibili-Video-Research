@@ -245,6 +245,22 @@ DSH 参考：
 - [DSH MCP 客户端](https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/mcp/mcp-client)
 - [第三方 MCP 接入指南](https://github.com/deepseek-ai/deepseek-harness/tree/main/docs/user/guide)
 
+### Step Code（阶跃 Step Code）
+
+Step Code 从 `~/.stepcode/config.toml` 读取本地 MCP server。用其自带命令注册本 server（`<PROJECT_DIR>` 换成你 clone 的绝对路径；Windows 用 `tsx.cmd`，Linux/WSL 用 `tsx`）：
+
+```powershell
+step mcp add bilibili_video_research --env DOTENV_CONFIG_PATH=<PROJECT_DIR>\.env -- <PROJECT_DIR>\node_modules\.bin\tsx.cmd <PROJECT_DIR>\src\index.ts
+```
+
+这会在 `~/.stepcode/config.toml` 写入 `[mcp_servers.bilibili_video_research]`。重启 Step Code，用 `step mcp list` 确认。provider key 放在 BVR 的 `.env`，别写进 config。一次调用可能串起元数据、下载、FFmpeg、上传与推理；长视频请像 Codex 那样调大 tool 超时。
+
+注意（Linux/WSL）：Step Code 需要宿主机有 `fd`（Debian/Ubuntu `apt install fd-find`），否则首次启动会卡在下载 `fd`。它跑在 Node 上。前面的 provider / Step Plan 设置与可选的登录态配置同样适用。
+
+Step Code 参考：
+
+- [Step Code](https://github.com/stepfun-ai/Step-Code)
+
 ## 上层封装建议
 
 本项目提供的是 MCP 核心能力，不绑定特定的 Agent 或 harness。若使用 Codex 或 OpenCode，可以参考本项目的工具说明与研究流程，将其进一步封装为对应平台的 skill，方便重复使用。若使用个人搭建的 Agent 或其他 harness，也可以根据自身的扩展机制，将这些 MCP 工具封装成 skill、插件、命令、system prompt 或其他形式。

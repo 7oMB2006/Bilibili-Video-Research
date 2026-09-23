@@ -288,6 +288,31 @@ DSH references:
 - [DSH MCP client](https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/mcp/mcp-client)
 - [Third-party MCP setup guide](https://github.com/deepseek-ai/deepseek-harness/tree/main/docs/user/guide)
 
+### Step Code
+
+Step Code discovers local MCP servers from `~/.stepcode/config.toml`. Register this
+server with its built-in command (replace `<PROJECT_DIR>` with the absolute path to
+your clone; use `tsx.cmd` on Windows, `tsx` on Linux/WSL):
+
+```powershell
+step mcp add bilibili_video_research --env DOTENV_CONFIG_PATH=<PROJECT_DIR>\.env -- <PROJECT_DIR>\node_modules\.bin\tsx.cmd <PROJECT_DIR>\src\index.ts
+```
+
+That writes a `[mcp_servers.bilibili_video_research]` entry into
+`~/.stepcode/config.toml`. Restart Step Code and confirm with `step mcp list`. Keep
+provider keys in the BVR `.env`, never in the config. One call can combine metadata,
+download, FFmpeg, upload, and inference; for long videos raise the tool timeout as you
+would for Codex.
+
+Note (Linux/WSL): Step Code expects `fd` on the host (`apt install fd-find` on
+Debian/Ubuntu); without it the first launch stalls while downloading `fd`. It runs on
+Node. The provider / Step Plan settings and the optional login-session setup from
+earlier sections apply unchanged.
+
+Step Code references:
+
+- [Step Code](https://github.com/stepfun-ai/Step-Code)
+
 ## Client-side packaging
 
 This repository provides the MCP layer and does not require a specific agent or harness. If you use Codex or OpenCode, you can use the documented tools and research workflow as a reference and wrap them as a client-specific skill for easier reuse. If you use a personal agent or another harness, you can package the MCP tools according to its own extension model, such as a skill, plugin, command, or system prompt.
