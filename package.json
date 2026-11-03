@@ -2,12 +2,14 @@
   "name": "bilibili-video-research-mcp",
   "version": "0.1.0",
   "private": true,
+  "dfscConfigurationVersion": 1,
   "type": "module",
   "description": "Evidence-aware Bilibili video research MCP for language, vision, and multimodal analysis.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "tsx src/index.ts",
-    "test": "tsx --test test/*.test.ts"
+    "test": "tsx --test test/*.test.ts && npm run test:dfsc",
+    "test:dfsc": "node --test test/dfsc-plugin.test.mjs"
   },
   "engines": {
     "node": ">=24"

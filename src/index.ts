@@ -1,10 +1,12 @@
-import "dotenv/config";
+import { config } from "dotenv";
+import { followsDfsc, withDfscOperation } from "./dfsc.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { createSilentVideo, analyzeWithProvider, createSilentWindow, removeTemporaryWindow } from "./video-analysis.js";
 import { researchBilibiliVideo } from "./bilibili.js";
 
+if (!followsDfsc()) config({ quiet: true });
 const server = new McpServer({ name: "bilibili-video-research-mcp", version: "0.1.0" });
 
 function result(text: string) {
@@ -36,7 +38,7 @@ server.registerTool("analyze_video", {
   description: "Creates an audio-free copy of a local video and sends it to the configured video-analysis provider for visual research. Visible interfaces, code, charts, labels, and subtitles remain usable visual evidence.",
   inputSchema: commonSchema,
   annotations: { readOnlyHint: true },
-}, async ({ video_path, question, media_detail }) => {
+}, async ({ video_path, question, media_detail }, extra) => withDfscOperation(async () => {
   let directory: string | undefined;
   try {
     const silent = await createSilentVideo(video_path);
@@ -51,7 +53,7 @@ server.registerTool("analyze_video", {
   } finally {
     if (directory) await removeTemporaryWindow(directory);
   }
-});
+}, extra.signal));
 
 server.registerTool("inspect_video_window", {
   title: "Inspect a Precise Video Window",
@@ -62,7 +64,7 @@ server.registerTool("inspect_video_window", {
     end_seconds: z.number().positive().describe("End time in seconds in the source video; must be after start_seconds."),
   },
   annotations: { readOnlyHint: true },
-}, async ({ video_path, question, media_detail, start_seconds, end_seconds }) => {
+}, async ({ video_path, question, media_detail, start_seconds, end_seconds }, extra) => withDfscOperation(async () => {
   let directory: string | undefined;
   try {
     const window = await createSilentWindow(video_path, start_seconds, end_seconds);
@@ -81,7 +83,7 @@ server.registerTool("inspect_video_window", {
       await removeTemporaryWindow(directory);
     }
   }
-});
+}, extra.signal));
 
 server.registerTool("analyze_bilibili_video", {
   title: "Research a Bilibili Video",
@@ -97,7 +99,7 @@ server.registerTool("analyze_bilibili_video", {
     end_seconds: z.number().positive().optional().describe("Optional source-video interval end in seconds. Provide together with start_seconds."),
   },
   annotations: { readOnlyHint: true },
-}, async ({ url, question, mode, media_detail, include_comments, source_quality, start_seconds, end_seconds }) => {
+}, async ({ url, question, mode, media_detail, include_comments, source_quality, start_seconds, end_seconds }, extra) => withDfscOperation(async () => {
   try {
     return result(await researchBilibiliVideo({
       url,
@@ -119,6 +121,6 @@ server.registerTool("analyze_bilibili_video", {
   } catch (error) {
     return failed(error);
   }
-});
+}, extra.signal));
 
 await server.connect(new StdioServerTransport());

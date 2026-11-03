@@ -1,0 +1,19 @@
+{
+  "id": "bilibili-video-research",
+  "name": "Bilibili Video Research",
+  "repository": "https://github.com/7oMB2006/Bilibili-Video-Research",
+  "description": "Evidence-aware Bilibili research. Follow the DFSC session account/model with confirmation, or choose independent configuration. Requires a separately installed BVR runtime.",
+  "version": "0.1.0",
+  "icon": "icon.png",
+  "skills": ["skills"],
+  "commands": ["commands"],
+  "mcpServers": {
+    "bvr": {
+      "command": "node",
+      "args": ["server/start.mjs"],
+      "env": { "STEPFUN_API_KEY": "bvr-managed-provider-context" },
+      "startup_timeout_sec": 120,
+      "tool_timeout_sec": 600
+    }
+  }
+}

@@ -478,6 +478,16 @@ BILIBILI_COOKIES_FILE=/absolute/path/to/cookies.txt
 
 请将导出的文件视为登录凭证：不要提交到 Git、上传到云端，也不要发给其他人；不再需要时，从 `.env` 和本地存储中移除。Cookie 只能提供当前登录账户本身拥有的访问权限，不能绕过付费、私密或其他受限内容。
 
+## DFSC 插件
+
+可选配套插件位于
+[`plugins/bilibili-video-research`](./plugins/bilibili-video-research/README.md)，
+组合了 MCP 启动器、视频研究技能和 `/bvr` 提示命令。
+需要单独安装 BVR 本体，不自动安装依赖。支持 BVR 宿主桥的新构建默认跟随
+DFSC 当前会话已生效的 Step 账户、计费渠道和兼容模型，由原生确认授权，
+不导出账户 Key；旧宿主或其他提供商仍可显式选择独立配置。
+插件存在于本仓库不代表已经收录到社区市场。
+
 ## 许可证
 
 [MIT](./LICENSE)
