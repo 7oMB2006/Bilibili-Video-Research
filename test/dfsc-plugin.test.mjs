@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
@@ -19,7 +19,7 @@ const api = {
 };
 
 async function fixture(t) {
-  const root = await mkdtemp(join(tmpdir(), "bvr-dfsc-test-"));
+  const root = await realpath(await mkdtemp(join(tmpdir(), "bvr-dfsc-test-")));
   t.after(() => rm(root, { recursive: true, force: true }));
   const runtime = join(root, "runtime with spaces");
   await mkdir(join(runtime, "src"), { recursive: true });
