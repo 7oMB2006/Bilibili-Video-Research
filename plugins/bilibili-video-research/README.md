@@ -1,6 +1,6 @@
 # BVR for DFSC
 
-这是 Bilibili Video Research 的 DFSC 配套插件，资源版本 `0.1.0`。
+这是 Bilibili Video Research 的 DFSC 配套插件，资源版本 `0.1.1`。
 提供 BVR MCP 启动声明、视频研究技能、`/bvr` 提示命令和图标。
 
 本插件不是 BVR 服务端的一键安装器。它不自动下载 Node.js、安装 npm 依赖、
@@ -134,5 +134,6 @@ BVR 本体在自己的目录中更新；更新后重新执行本地检查并验�
 来源路径为 `plugins/bilibili-video-research`，锁定完整的上游提交 SHA。
 市场维护者同步资源副本、记录哈希并运行市场校验和安装验收。
 不要把 `node_modules`、私密环境文件、Cookie、日志或用户会话一起收录。
-收录来源应包含本目录许可证；图标来源为本项目已有的 Bilibili 标识图片，
+收录来源应包含本目录许可证；`0.1.1` 的插件图标采用维护者提供的插画，
+替换旧版 Bilibili 标识，并将画面外侧白边处理为透明；不改变 MCP 或配置协议，
 不表示 Bilibili、StepFun 或 DFSC 官方背书。

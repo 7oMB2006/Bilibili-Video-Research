@@ -3,7 +3,7 @@
   "name": "Bilibili Video Research",
   "repository": "https://github.com/7oMB2006/Bilibili-Video-Research",
   "description": "Evidence-aware Bilibili research. Follow the DFSC session account/model with confirmation, or choose independent configuration. Requires a separately installed BVR runtime.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "icon": "icon.png",
   "skills": ["skills"],
   "commands": ["commands"],
