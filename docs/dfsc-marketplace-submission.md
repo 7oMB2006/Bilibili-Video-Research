@@ -136,6 +136,8 @@ file is included in the market resource.
 This directory intentionally uses `provider.example`, not `.env.example`:
 the current community validator excludes `.env` and `.env.*` resources.
 Runtime dependencies and media binaries are not bundled into the market.
-The MIT license covers this project's code and resource text; the existing
-Bilibili logo remains a third-party identifier, not an endorsement or a claim
-of ownership over that mark.
+The MIT license covers this project's code and resource text. Resource version
+`0.1.1` replaces the old Bilibili-logo plugin icon with artwork supplied by the
+maintainer, with the exterior white margin made transparent. Supplying artwork
+does not establish its authorship or license; verify those independently before
+distribution. The icon does not imply endorsement by Bilibili, StepFun or DFSC.

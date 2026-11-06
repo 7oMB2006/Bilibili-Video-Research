@@ -44,7 +44,7 @@ async function fixture(t) {
 test("DFSC manifest declares real resources and no install hook", async () => {
   const manifest = JSON.parse(await readFile(join(pluginRoot, "step.plugin.json"), "utf8"));
   assert.equal(manifest.id, "bilibili-video-research");
-  assert.equal(manifest.version, "0.1.0");
+  assert.equal(manifest.version, "0.1.1");
   assert.deepEqual(manifest.skills, ["skills"]);
   assert.deepEqual(manifest.commands, ["commands"]);
   assert.equal(manifest.entry, undefined);
@@ -55,6 +55,7 @@ test("DFSC manifest declares real resources and no install hook", async () => {
   for (const path of ["commands/bvr.md", "skills/bilibili-video-research/SKILL.md", "server/start.mjs", "LICENSE"])
     assert.ok((await stat(join(pluginRoot, path))).isFile());
   const icon = await readFile(join(pluginRoot, manifest.icon));
+  assert.deepEqual(icon.subarray(0, 8), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
   assert.ok(icon.length <= 128 * 1024);
   assert.ok(icon.readUInt32BE(16) <= 512 && icon.readUInt32BE(20) <= 512);
   const skill = await readFile(join(pluginRoot, "skills/bilibili-video-research/SKILL.md"), "utf8");
