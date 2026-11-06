@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "categories": ["research", "audio-video"],
+  "keywords": ["视频研究", "字幕", "语音转写"],
+  "authors": [{ "name": "Bilibili Video Research contributors" }],
+  "maintainers": [{ "name": "7oMB2006" }],
+  "license": "MIT",
+  "documentation": { "readme": "docs/DFSC.md" },
+  "locales": {
+    "zh": {
+      "description": "基于字幕、语音和画面研究哔哩哔哩视频。可经确认沿用 DFSC 会话账户与模型，也可独立配置。需另装 BVR 本体。",
+      "documentation": { "readme": "docs/DFSC.md" }
+    },
+    "en": {
+      "description": "Research Bilibili videos using subtitles, audio and visual evidence. Follow the DFSC session account/model with confirmation, or configure separate connections. Requires an external BVR runtime.",
+      "documentation": { "readme": "docs/DFSC.en.md" }
+    }
+  },
+  "tutorials": [{
+    "title": "让 Agent 陪你一起研究视频",
+    "creator": "7oMB",
+    "kind": "community",
+    "url": "https://www.bilibili.com/video/BV1dPeP6REwM/"
+  }],
+  "links": [
+    { "title": "完整项目文档 / Project documentation", "url": "https://github.com/7oMB2006/Bilibili-Video-Research/blob/main/README.zh-CN.md" },
+    { "title": "提交问题 / Report an issue", "url": "https://github.com/7oMB2006/Bilibili-Video-Research/issues" }
+  ]
+}

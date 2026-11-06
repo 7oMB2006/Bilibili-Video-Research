@@ -469,10 +469,16 @@ async function ytDlpCredentialArgs(): Promise<string[]> {
       : [];
 }
 
+export function downloadProxyArgs(): string[] {
+  const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+  return proxy ? ["--proxy", proxy] : [];
+}
+
 async function probeVideoFormats(url: string, credentialArgs: string[]): Promise<ReturnType<typeof parseYtDlpMetadata>> {
   const { stdout } = await execFile(ytDlpPath, [
     "--no-playlist", "--no-warnings", "--restrict-filenames", "--no-continue",
     "--skip-download", "--dump-single-json",
+    ...downloadProxyArgs(),
     ...credentialArgs,
     url,
   ], { maxBuffer: 1024 * 1024 * 16 });
@@ -491,6 +497,7 @@ async function downloadVideo(url: string, directory: string, quality: ResolvedSo
       const { stdout } = await execFile(ytDlpPath, [
         "--no-playlist", "--no-warnings", "--restrict-filenames", "--no-continue",
         "--ffmpeg-location", getFfmpegPath(),
+        ...downloadProxyArgs(),
         ...credentialArgs,
         "-f", selection.selector,
         "--merge-output-format", "mp4",
@@ -527,6 +534,14 @@ async function downloadVideo(url: string, directory: string, quality: ResolvedSo
   }
   const detail = lastError instanceof Error ? ` ${lastError.message}` : "";
   throw new Error(`yt-dlp could not produce a readable video after two fresh download attempts.${detail}`);
+}
+
+export async function createResearchDirectory(): Promise<string> {
+  const configured = process.env.BILIBILI_DOWNLOAD_DIRECTORY?.trim();
+  if (configured && !path.isAbsolute(configured)) throw new Error("BILIBILI_DOWNLOAD_DIRECTORY must be absolute.");
+  const root = configured || process.env.TEMP || process.cwd();
+  await fs.mkdir(root, { recursive: true });
+  return fs.mkdtemp(path.join(root, "bilibili-video-research-mcp-"));
 }
 
 export async function researchBilibiliVideo(request: BilibiliResearchRequest): Promise<string> {
@@ -580,14 +595,15 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
 
   try {
     if (request.mode === "language") {
-      const captions = await getCaptionText(video, startSeconds, endSeconds);
+      const captions = process.env.BILIBILI_PREFER_CAPTIONS === "false" ? undefined
+        : await getCaptionText(video, startSeconds, endSeconds);
       if (captions) return finish(await analyzeTextWithProvider(languagePrompt(context, request.question, captions.text)), {
         language: "bilibili_caption",
         timestamps: captions.hasTimestamps ? "caption_cues" : "none",
         source_quality: serializeSourceQuality(sourceQuality, undefined, "not_downloaded", "Bilibili captions were available; media download was not needed."),
       });
 
-      const directory = await fs.mkdtemp(path.join(process.env.TEMP ?? process.cwd(), "bilibili-video-research-mcp-"));
+      const directory = await createResearchDirectory();
       try {
         const downloaded = await downloadVideo(request.url, directory, sourceQuality);
         downloadedQuality = downloaded.quality;
@@ -611,7 +627,7 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
       }
     }
 
-    const directory = await fs.mkdtemp(path.join(process.env.TEMP ?? process.cwd(), "bilibili-video-research-mcp-"));
+    const directory = await createResearchDirectory();
     try {
       const downloaded = await downloadVideo(request.url, directory, sourceQuality);
       downloadedQuality = downloaded.quality;

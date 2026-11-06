@@ -1,0 +1,16 @@
+# Copy outside the installed plugin directory, then edit privately.
+# Only independent mode uses provider credentials from this file.
+# Follow DFSC mode ignores the provider, key, endpoint and model settings below.
+CODEX_VIDEO_PROVIDER=stepfun
+STEPFUN_API_KEY=REPLACE_WITH_YOUR_BVR_KEY
+
+# Choose exactly one endpoint matching that key and the intended channel.
+STEPFUN_BASE_URL=https://api.stepfun.com/v1
+# STEPFUN_BASE_URL=https://api.stepfun.com/step_plan/v1
+
+# Gemini alternative: change CODEX_VIDEO_PROVIDER to gemini and set its key.
+# GEMINI_API_KEY=REPLACE_WITH_YOUR_GEMINI_KEY
+
+# Optional, absolute paths only. Never distribute a Cookie file.
+# BILIBILI_COOKIES_FILE=D:/Private/BVR/cookies.txt
+# FFMPEG_PATH=D:/Tools/ffmpeg/bin/ffmpeg.exe

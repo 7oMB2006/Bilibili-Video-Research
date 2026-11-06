@@ -568,6 +568,19 @@ remove it from `.env` and local storage when it is no longer needed. A Cookie
 only supplies the access available to the signed-in account; it does not bypass
 paid, private, or otherwise restricted content.
 
+## DFSC Plugin
+
+An optional companion plugin is available in
+[`plugins/bilibili-video-research`](./plugins/bilibili-video-research/README.md).
+It combines an MCP launcher, a research skill and a `/bvr` prompt command.
+It requires a separately installed BVR runtime. On DFSC builds with the BVR host
+bridge, setup defaults to following the active session's applied Step account,
+billing channel and compatible model, with native confirmation and no provider
+key export. Independent private provider configuration remains available
+explicitly, including for older hosts. Dependencies are not installed automatically.
+Availability in this repository does not mean it has been accepted into a
+community marketplace.
+
 ## License
 
 [MIT](./LICENSE)

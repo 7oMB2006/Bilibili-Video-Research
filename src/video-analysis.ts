@@ -5,6 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { execFile as execFileCallback } from "node:child_process";
+import { analyzeWithDfsc, followsDfsc, withDfscOperation } from "./dfsc.js";
+import { assertDfscConfigurationCurrent } from "./dfsc-configuration.js";
 
 const execFile = promisify(execFileCallback);
 const require = createRequire(import.meta.url);
@@ -78,6 +80,7 @@ async function assertReadableMedia(videoPath: string): Promise<void> {
 async function waitForFile(ai: GoogleGenAI, name: string): Promise<{ uri: string; mimeType: string }> {
   const deadline = Date.now() + PROCESSING_TIMEOUT_MS;
   while (Date.now() < deadline) {
+    await assertDfscConfigurationCurrent();
     const current = await ai.files.get({ name });
     if (current.state === FileState.ACTIVE && current.uri && current.mimeType) {
       return { uri: current.uri, mimeType: current.mimeType };
@@ -164,6 +167,17 @@ export async function createAudioTrack(videoPath: string): Promise<{ directory: 
 
 export async function analyzeMediaWithProvider(mediaPath: string, prompt: string, mediaDetail: MediaDetail = "default"): Promise<string> {
   await assertReadableMedia(mediaPath);
+  if (followsDfsc()) return withDfscOperation(async () => {
+    const mimeType = mediaMimeType(mediaPath);
+    const info = await fs.stat(mediaPath);
+    if (info.size > 23 * 1024 * 1024) throw new Error("DFSC media is limited to 23 MiB per request. Use a shorter video window.");
+    const data = (await fs.readFile(mediaPath)).toString("base64");
+    if (mimeType.startsWith("audio/")) {
+      const transcript = await analyzeWithDfsc("asr", prompt, { mimeType, data });
+      return analyzeWithDfsc("text", `${prompt}\n\nASR TRANSCRIPT (language evidence):\n${transcript}`);
+    }
+    return analyzeWithDfsc("video", `${stepfunDetailInstruction(mediaDetail)}\n\n${prompt}`, { mimeType, data });
+  });
   const provider = selectedProvider();
   if (provider === "stepfun") return analyzeMediaWithStepfun(mediaPath, prompt, mediaDetail);
 
@@ -173,6 +187,7 @@ export async function analyzeMediaWithProvider(mediaPath: string, prompt: string
   }
 
   const ai = new GoogleGenAI({ apiKey });
+  await assertDfscConfigurationCurrent();
   const uploaded = await ai.files.upload({
     file: mediaPath,
     config: { displayName: path.basename(mediaPath) },
@@ -183,6 +198,7 @@ export async function analyzeMediaWithProvider(mediaPath: string, prompt: string
 
   try {
     const file = await waitForFile(ai, uploaded.name);
+    await assertDfscConfigurationCurrent();
     const response = await ai.models.generateContent({
       model: process.env.GEMINI_VIDEO_MODEL ?? "gemini-2.5-flash",
       contents: [{
@@ -208,10 +224,16 @@ function stepfunBaseUrl(): string {
   return "https://api.stepfun.com/v1";
 }
 
-async function stepfunRequest(pathname: string, init: RequestInit): Promise<Response> {
-  const apiKey = process.env.STEPFUN_API_KEY;
+async function stepfunRequest(pathname: string, init: RequestInit, asr = false): Promise<Response> {
+  if (followsDfsc()) throw new Error("Direct Step requests are disabled in Follow DFSC mode.");
+  await assertDfscConfigurationCurrent();
+  const separateAsr = asr && (process.env.STEPFUN_ASR_BASE_URL !== undefined || process.env.STEPFUN_ASR_API_KEY !== undefined);
+  const apiKey = separateAsr ? process.env.STEPFUN_ASR_API_KEY : process.env.STEPFUN_API_KEY;
+  const base = separateAsr ? process.env.STEPFUN_ASR_BASE_URL?.trim().replace(/\/+$/, "") : stepfunBaseUrl();
+  if (separateAsr && (!apiKey?.trim() || !base))
+    throw new Error("Separate ASR requires both STEPFUN_ASR_BASE_URL and STEPFUN_ASR_API_KEY. No fallback is used.");
   if (!apiKey) throw new Error("STEPFUN_API_KEY is not configured for bilibili-video-research-mcp.");
-  const response = await fetch(`${stepfunBaseUrl()}${pathname}`, {
+  const response = await fetch(`${base}${pathname}`, {
     ...init,
     headers: { Authorization: `Bearer ${apiKey}`, ...(init.headers ?? {}) },
   });
@@ -298,7 +320,7 @@ async function transcribeAudioWithStepfun(audioPath: string, mimeType: string): 
         },
       },
     }),
-  });
+  }, true);
   const streamText = await response.text();
   const deltas: string[] = [];
   const doneTexts: string[] = [];
@@ -323,6 +345,7 @@ async function transcribeAudioWithStepfun(audioPath: string, mimeType: string): 
 export { transcribeAudioWithStepfun };
 
 export async function analyzeTextWithProvider(prompt: string): Promise<string> {
+  if (followsDfsc()) return analyzeWithDfsc("text", prompt);
   const provider = selectedProvider();
   if (provider === "stepfun") return analyzeTextWithStepfun(prompt);
 
@@ -331,6 +354,7 @@ export async function analyzeTextWithProvider(prompt: string): Promise<string> {
     throw new Error("GEMINI_API_KEY is not configured for bilibili-video-research-mcp.");
   }
   const ai = new GoogleGenAI({ apiKey });
+  await assertDfscConfigurationCurrent();
   const response = await ai.models.generateContent({
     model: process.env.GEMINI_VIDEO_MODEL ?? "gemini-2.5-flash",
     contents: prompt,
