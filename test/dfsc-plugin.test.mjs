@@ -62,6 +62,40 @@ test("DFSC manifest declares real resources and no install hook", async () => {
   assert.doesNotMatch(skill, /codex_video|mcp__codex/);
 });
 
+test("DFSC presentation declares reviewed classification, bilingual docs and safe author links", async () => {
+  const bytes = await readFile(join(pluginRoot, "dfsc.plugin.json"));
+  assert.ok(bytes.length <= 64 * 1024);
+  const presentation = JSON.parse(bytes.toString("utf8"));
+  assert.equal(presentation.schemaVersion, 1);
+  assert.deepEqual(presentation.categories, ["research", "audio-video"]);
+  assert.deepEqual(presentation.keywords, ["视频研究", "字幕", "语音转写"]);
+  assert.equal(presentation.stars, undefined, "Stars must come from live repository metadata, not author claims");
+  assert.deepEqual(Object.keys(presentation.locales).sort(), ["en", "zh"]);
+  const documents = new Set([presentation.documentation.readme]);
+  for (const locale of Object.values(presentation.locales)) {
+    assert.ok(locale.description.trim().length > 0 && locale.description.length <= 2048);
+    documents.add(locale.documentation.readme);
+  }
+  assert.deepEqual([...documents].sort(), ["docs/DFSC.en.md", "docs/DFSC.md"]);
+  for (const path of documents) {
+    assert.match(path, /^docs\/[a-zA-Z0-9.-]+\.md$/);
+    const guide = await readFile(join(pluginRoot, path), "utf8");
+    assert.ok(guide.includes("/bvr"));
+    assert.ok(guide.includes("../README.md"), "Keep the market-maintained technical guide reachable");
+  }
+  assert.equal(presentation.tutorials.length, 1);
+  assert.equal(presentation.tutorials[0].kind, "community");
+  assert.ok(presentation.tutorials[0].creator.trim());
+  for (const link of [...presentation.tutorials, ...presentation.links]) {
+    const url = new URL(link.url);
+    assert.equal(url.protocol, "https:");
+    assert.equal(url.username, "");
+    assert.equal(url.password, "");
+    assert.ok(link.title.trim().length > 0 && link.title.length <= 160);
+  }
+  for (const link of presentation.links) assert.deepEqual(Object.keys(link).sort(), ["title", "url"]);
+});
+
 test("the three supported provider routes must be selected explicitly", () => {
   assert.deepEqual(validateProvider(api), { provider: "stepfun", channel: "api" });
   assert.deepEqual(validateProvider({ ...api, STEPFUN_BASE_URL: "https://api.stepfun.com/step_plan/v1/" }),

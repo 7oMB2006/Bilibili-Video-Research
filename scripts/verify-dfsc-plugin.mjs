@@ -15,10 +15,10 @@ const options = {};
 for (let index = 0; index < arguments_.length; index += 2) {
   const key = arguments_[index];
   const value = arguments_[index + 1];
-  assert.ok(["--desktop", "--output", "--marketplace", "--marketplace-name"].includes(key) && !options[key]
+  assert.ok(["--desktop", "--output", "--marketplace", "--marketplace-name", "--host-modules"].includes(key) && !options[key]
     && typeof value === "string" && value.length > 0
-    && (!["--desktop", "--output", "--marketplace"].includes(key) || isAbsolute(value)),
-    "Usage: node scripts/verify-dfsc-plugin.mjs --desktop <staged Desktop directory> --output <new directory> [--marketplace <absolute market directory> --marketplace-name <name>]");
+    && (key === "--marketplace-name" || isAbsolute(value)),
+    "Usage: node scripts/verify-dfsc-plugin.mjs --desktop <staged Desktop directory> --output <new directory> [--host-modules <absolute host module directory>] [--marketplace <absolute market directory> --marketplace-name <name>]");
   options[key] = value;
 }
 assert.ok(options["--desktop"] && options["--output"], "--desktop and --output are required");
@@ -27,6 +27,7 @@ assert.equal(Boolean(options["--marketplace"]), Boolean(options["--marketplace-n
 const output = resolve(options["--output"]);
 await mkdir(output, { recursive: false });
 const desktop = resolve(options["--desktop"]);
+const hostModules = resolve(options["--host-modules"] ?? join(desktop, "runtime"));
 const profile = join(output, "profile", "step-runtime");
 const agentDir = join(profile, "agent");
 const marketplace = options["--marketplace"] ?? join(output, "bvr-local-preview");
@@ -56,30 +57,58 @@ Object.assign(process.env, isolated, {
   STEPCODE_AUTH_PATH: join(agentDir, "auth.json"),
 });
 const upstream = await import(pathToFileURL(join(desktop, "runtime", "step", "dist", "bundle", "index.js")).href);
-const { createCapabilitySettings } = await import(pathToFileURL(join(desktop, "runtime", "capability-settings.mjs")).href);
+const { createCapabilitySettings } = await import(pathToFileURL(join(hostModules, "capability-settings.mjs")).href);
+const { PluginLibrary } = await import(pathToFileURL(join(hostModules, "plugin-library.mjs")).href);
 const manager = createCapabilitySettings(upstream, { root: profile });
+const library = new PluginLibrary(profile);
+const expectedPresentation = JSON.parse(await readFile(join(pluginRoot, "dfsc.plugin.json"), "utf8"));
 const report = {
   kind: "local-unpublished-preview",
   marketplace: marketplaceName,
   marketplaceSource: marketplace,
   desktopRuntime: JSON.parse(await readFile(join(desktop, "runtime", "manifest.json"), "utf8")).commit,
+  hostModules,
   realProviderRequests: false,
   checks: [],
 };
 const check = name => report.checks.push(name);
+async function verifyPresentation(entry) {
+  assert.equal(entry.repository, "https://github.com/7oMB2006/Bilibili-Video-Research");
+  assert.equal(entry.package.provenance, "recorded");
+  assert.deepEqual(entry.package.warnings, []);
+  assert.deepEqual(entry.package.categories, expectedPresentation.categories);
+  assert.deepEqual(entry.package.keywords, expectedPresentation.keywords);
+  assert.deepEqual(entry.package.locales, expectedPresentation.locales);
+  assert.equal(entry.package.tutorials[0].url, expectedPresentation.tutorials[0].url);
+  assert.deepEqual(entry.package.links, expectedPresentation.links);
+  for (const language of ["zh", "en"]) {
+    const path = entry.package.locales[language].documentation.readme;
+    const document = await library.document({ ref: entry.package.ref, path });
+    assert.equal(document.text, await readFile(join(pluginRoot, path), "utf8"));
+    assert.equal(document.links["../README.md"], "README.md");
+    const technicalGuide = await library.document({ ref: entry.package.ref, path: "README.md" });
+    const root = options["--marketplace"] ? join(marketplace, "plugins", "bilibili-video-research") : pluginRoot;
+    assert.equal(technicalGuide.text, await readFile(join(root, "README.md"), "utf8"));
+  }
+}
 await manager.mutate({ action: "marketplace-add", source: marketplace }, AbortSignal.timeout(30_000));
-let catalog = await manager.catalog();
-assert.ok(catalog.available.some(item => item.name === "bilibili-video-research" && item.marketplace === marketplaceName));
-check("DFSC native marketplace discovery");
+let catalog = await library.project(await manager.catalog());
+const available = catalog.available.find(item => item.name === "bilibili-video-research" && item.marketplace === marketplaceName);
+assert.ok(available);
+await verifyPresentation(available);
+check("Native discovery projects real categories, keywords, bilingual docs, tutorial and link cards");
 await manager.mutate({ action: "plugin-install", name: "bilibili-video-research", marketplace: marketplaceName },
   AbortSignal.timeout(30_000));
-catalog = await manager.catalog();
+catalog = await library.project(await manager.catalog());
 const plugin = catalog.plugins.find(item => item.id === "bilibili-video-research");
 assert.ok(plugin);
+assert.equal(plugin.marketplace, marketplaceName);
+assert.deepEqual(plugin.installationSource, { status: "recorded", marketplaces: [marketplaceName] });
+await verifyPresentation(plugin);
 assert.equal(plugin.icon?.kind, "png");
 assert.ok(catalog.mcp.some(item => item.name === "bilibili-video-research__bvr" && item.source === "plugin"));
 assert.ok(catalog.skills.some(item => item.name === "bilibili-video-research" && item.source === "plugin"));
-check("DFSC native install, PNG icon, skill and MCP declaration");
+check("Native install preserves marketplace provenance, presentation, PNG icon, skill and MCP declaration");
 const resources = await upstream.discoverStepPluginResourcePaths({ userDir: join(profile, "plugins"), projectTrusted: false });
 assert.deepEqual(resources.warnings, []);
 const loader = new upstream.DefaultResourceLoader({
@@ -97,7 +126,7 @@ await execute(process.execPath, [join(installed, "server", "configure.mjs"), "--
   "--runtime", repository, "--mode", "independent", "--env-file", fixtureEnv], { env: process.env, timeout: 15_000 });
 const client = new Client({ name: "bvr-dfsc-offline-verification", version: "0.1.0" }, { capabilities: {} });
 const transport = new StdioClientTransport({
-  command: process.execPath, args: [join(installed, "server", "start.mjs")], cwd: installed,
+  command: process.execPath, args: [join(installed, "server", "start.mjs")], cwd: output,
   env: { ...process.env, STEPFUN_API_KEY: "desktop-credential-must-not-be-used" }, stderr: "pipe",
 });
 let stderr = "";
@@ -120,6 +149,8 @@ assert.ok((await stat(fixtureEnv)).isFile());
 check("Native uninstall preserves independent config and environment file");
 await manager.mutate({ action: "plugin-install", name: "bilibili-video-research", marketplace: marketplaceName },
   AbortSignal.timeout(30_000));
+catalog = await library.project(await manager.catalog());
+await verifyPresentation(catalog.plugins.find(item => item.id === "bilibili-video-research"));
 const result = await execute(process.execPath, [join(installed, "server", "start.mjs"), "--check"], { env: process.env });
 assert.match(result.stdout, /stepfun \/ plan/);
 check("Native reinstall keeps explicit Plan selection");

@@ -18,18 +18,27 @@ node scripts/verify-dfsc-host.mjs --bridge-module "/absolute/path/to/compiled/DF
 The integration script needs DFSC's staged `runtime/`, including the native
 management exports. It creates an isolated profile and local preview market,
 installs the plugin through DFSC's actual capability manager, checks the icon,
-skill and `/bvr` resource loader, and completes MCP initialization and tool
-listing against the real local BVR process. It then uninstalls and reinstalls
-the resource, verifying that private path configuration survives.
+classification, bilingual documentation, tutorial and author link cards, skill
+and `/bvr` resource loader, and completes MCP initialization and tool listing
+against the real local BVR process. It then uninstalls and reinstalls the
+resource, verifying that private path configuration and presentation survive.
+The installed package must retain a recorded marketplace source, not merely
+match an unrecorded local copy.
 
-The verified Windows host is DFSC main `fb4828b`, staged with upstream runtime
+The 2026-11-06 Windows verification uses DFSC main
+`12c13170f8f80945cfa245c1297b81d527f3ff23` (including merged host PR #204),
+with upstream runtime
 `81e79bc4b699148d6823fedde9b5e70d9a80255f` and its declared desktop overlays.
+The runtime pin and complete Windows patched-source hashes were compared with
+the current host manifest. The verifier used that packaged runtime and the
+current host's `Desktop/electron` modules via the explicit `--host-modules`
+option; it did not modify the package or claim a new graphical application build.
 The plugin needs the host to anchor relative MCP arguments to the plugin root.
 Earlier released installers and macOS/Linux have not been tested; a shared
 `0.6.0` package version alone is not a compatibility guarantee.
 
-The first script explicitly tests independent mode on that existing host. Follow
-DFSC mode additionally requires the new `Desktop/electron/bvr-bridge.ts` host
+The first script explicitly tests independent mode on that host. Follow
+DFSC mode additionally requires the `Desktop/electron/bvr-bridge.ts` host
 integration; it does not work just because plugin discovery works. Compile that
 module to ESM for the second script, which exercises the real BVR launcher, MCP
 tools/call and local FFmpeg against the actual bridge code. Its resident session,
@@ -44,6 +53,13 @@ can be added manually to a disposable DFSC instance. Do not treat the fixture
 profile or environment file as distributable resources.
 
 ## Prepare the marketplace PR
+
+The author-owned `dfsc.plugin.json` declares the reviewed `research` and
+`audio-video` categories and the keywords `视频研究`, `字幕`, `语音转写`.
+It also supplies Chinese/English descriptions and package-local guides, a
+community tutorial and explicit external links. These bytes must be synced and
+locked unchanged; do not duplicate classification in the registry or native
+marketplace manifest. Community taxonomy validation depends on community PR #3.
 
 After the BVR changes have been reviewed and committed, add an entry like this
 to the `plugins` array in the community market's `registry.json`:
@@ -80,10 +96,12 @@ The sync step generates `plugins/bilibili-video-research/`,
 or generated resources to bypass source review. Submission is a separate PR,
 not something the local verification script performs.
 
-Verify that generated market copy, rather than a second source-directory copy:
+Verify that generated market copy, rather than a second source-directory copy.
+When testing against a host checkout instead of staged helpers, explicitly
+select its `Desktop/electron` directory:
 
 ```sh
-node scripts/verify-dfsc-plugin.mjs --desktop "/absolute/path/to/staged/Desktop" --output "/absolute/path/to/a/new/market-verification-directory" --marketplace "/absolute/path/to/dfsc-community-plugins" --marketplace-name dfsc-community
+node scripts/verify-dfsc-plugin.mjs --desktop "/absolute/path/to/staged/Desktop" --host-modules "/absolute/path/to/host/Desktop/electron" --output "/absolute/path/to/a/new/market-verification-directory" --marketplace "/absolute/path/to/dfsc-community-plugins" --marketplace-name dfsc-community
 ```
 
 The marketplace directory must have a basename without spaces for the current
@@ -100,15 +118,17 @@ the pin to the retained commit and rerun synchronization and verification.
 Further resource changes likewise require a new source commit and lock refresh;
 editing a branch alone never upgrades the pinned market copy.
 
-The graphical configuration and Follow DFSC mode additionally depend on the
-separate DFSC host PR. They are not features of every released 0.6.0 installer.
-Until that host is available, keep the marketplace submission in draft rather
+The graphical configuration and Follow DFSC mode additionally require a
+compatible DFSC build. The host integration is merged, but that does not make
+it a feature of every released 0.6.0 installer.
+Until that host is delivered, keep the marketplace submission in draft rather
 than presenting the default hosted setup as ready for general users.
 Independent mode requires explicit private configuration and a tested native
 plugin-relative working directory; unsupported hosts must not silently fall
 back to another account, provider or billing route.
 
-The 2026-11-04 source validation passes type checking and all 42 tests.
+The 2026-11-06 source validation passes type checking and all 43 tests
+(25 TypeScript and 18 launcher/resource/presentation tests).
 These are local checks, not cloud CI or real-account/media/billing acceptance.
 No dependency installation, external runtime, personal profile or credential
 file is included in the market resource.
