@@ -47,6 +47,33 @@ That script does not sign a generic launch. It explicitly checks that manual
 startup without a launch context is refused. It does not invoke analysis tools.
 Use the generic-host verifier above for real BVR MCP tools/call evidence.
 
+### Native Source Electron Combination
+
+After building the compatible DFSC source and staging its runtime, run:
+
+```sh
+npm run verify:dfsc-electron -- --desktop-root "/absolute/path/to/candidate/desktop-for-step-code" --output "/absolute/path/to/a/new/native-acceptance-directory"
+```
+
+This uses DFSC's existing locked Electron/Playwright installation, not new BVR
+runtime dependencies. The actual marketplace IPC installs the unmodified BVR
+resource; its fingerprint must match the source. The production native launcher,
+broker source checks, MCP handshake, BVR/FFmpeg processing and confirmation UI
+remain active. Only provider transports are instrumented to use isolated local
+responses, including the agent response that selects the actual BVR tool.
+
+The eight scenarios cover denial without repeated confirmation, per-launch
+approval reuse, provider failure without fallback, pending/in-flight cancellation,
+account replacement with a new approval, the actual independent settings form,
+independent startup/invocation without a host account, and independent revision
+changes blocking the existing process. It verifies the renderer sandbox and
+credential-free IPC/history, closes only its own application and removes its
+test profile. Screenshots and a redacted receipt remain in the output directory.
+
+This is Windows source Electron evidence, not a packaged upgrade, native macOS,
+real OAuth/Plan entitlement or actual Bilibili no-caption ASR acceptance. The
+separate broker verifier's fixture consumer callback is not used by this script.
+
 Historical `0.1.x` discovery, icon and legacy-bridge results do not establish
 compatibility with this new declaration, configuration schema or authorization.
 

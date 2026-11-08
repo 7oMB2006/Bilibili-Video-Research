@@ -139,6 +139,23 @@ Step adapter，但提供商、账户和确认回调均为隔离 fixture。
 它不证明生产原生 launcher、Electron 界面、真实账户权益或安装升级已验收。
 不能把本地模拟结果写成正式上线或真实扣费验证。
 
+另有组合源码 Electron 验收，需要该 DFSC 候选已完成生产构建、暂存 runtime，
+且安装有其锁定版本的 Electron 和 Playwright；不会给 BVR 增加这些运行依赖：
+
+```powershell
+npm run verify:dfsc-electron -- --desktop-root "D:/Desktop For Step Code" --output "D:/DFSC-QA/new-bvr-native-run"
+```
+
+输出目录必须尚不存在。此验收通过正式插件管理 IPC 安装未改写声明的 BVR，
+再经过实际原生 launcher、MCP、FFmpeg 和授权界面；不替换 broker 的来源校验
+或用户确认逻辑。仅把提供商传输改接到本机隔离响应，以触发真实工具链。
+覆盖拒绝不重弹、授权复用、提供商失败、请求取消、账号更换后重新授权，
+以及无宿主账号的独立启动和配置变化后的旧进程阻断。自动关闭其测试窗口并
+删除隔离配置，只留下截图和不含凭据的验证摘要，不接触日常应用或快捷方式。
+
+该源码验收不等于安装包、旧安装升级、真实 OAuth/Plan 权益、原生 macOS
+或实际 Bilibili 无字幕 ASR 全链路验收；这些仍是后续独立门槛。
+
 插件同系统用户运行，不是恶意本地代码沙箱。
 不要共享启动上下文、本地 bearer、Key、Cookie、用户日志或会话。
 原插画图标保留，不表示 Bilibili、StepFun 或 DFSC 官方背书。
