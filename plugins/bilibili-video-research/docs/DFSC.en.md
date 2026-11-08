@@ -5,10 +5,13 @@ audio or video frames to produce evidence traceable to the original video.
 
 ## Get Started
 
-1. Install the BVR runtime and its dependencies separately. Plugin installation
+This page describes the unpublished `0.2.0` generic-host candidate.
+Legacy hosts and the BVR-specific account bridge are not compatible.
+
+1. Explicitly update the separate BVR runtime and its dependencies. Plugin installation
    does not install the runtime or Node.js.
-2. Open the plugin's configuration gear, select the runtime directory and check
-   the local environment.
+2. Register and check the runtime path using the [technical guide](../README.md),
+   then open the plugin's configuration gear.
 3. Choose Follow DFSC, or configure independent main-model and ASR connections,
    then save.
 4. Enable the MCP service and manually restart the idle session that needs it.
@@ -37,7 +40,10 @@ not automatically an audio-transcription model.
 
 In independent mode, the main model and ASR have separate endpoint, key and
 model fields. Switching the DFSC chat account does not change those independent
-connections. Model requests may consume credits or balance. The local
+connections.
+Step ASR requires all three separate fields; empty ASR settings never borrow
+the main key. Existing keys and authorization are not automatically migrated.
+Model requests may consume credits or balance. The local
 environment check does not verify live account access or billing. Cancellation
 cannot reverse costs of requests already accepted by a provider.
 
@@ -46,7 +52,7 @@ cannot reverse costs of requests already accepted by a provider.
 Media, subtitles, public metadata and sampled comments may be sent to the
 selected provider. Public videos do not always need cookies; use only local
 cookie files that you explicitly authorize. Never share keys, cookies, private
-configuration or host connection descriptors in chat or issue reports.
+configuration or per-launch contexts in chat or issue reports.
 This is a local native-plugin integration, not a sandbox for malicious plugins.
 
 See the [plugin technical guide](../README.md) for installation commands,

@@ -72,3 +72,23 @@ test("missing files and partial launch guards fail closed; standalone launch is 
   delete process.env.BVR_DFSC_CONFIG_REVISION;
   await assertDfscConfigurationCurrent();
 });
+
+test("generic follow setup ignores a legacy private file but rejects a changed runtime setup", async t => {
+  const { root } = await fixture(t);
+  delete process.env.BVR_DFSC_CONFIG_PATH;
+  delete process.env.BVR_DFSC_CONFIG_REVISION;
+  const path = join(root, "runtime-setup.json");
+  const raw = JSON.stringify({ runtimeDirectory: root, envFile: join(root, "missing-private.env") });
+  await writeFile(path, raw);
+  const saved = { path: process.env.BVR_DFSC_SETUP_PATH, revision: process.env.BVR_DFSC_SETUP_REVISION };
+  t.after(() => {
+    for (const [key, value] of [["BVR_DFSC_SETUP_PATH", saved.path], ["BVR_DFSC_SETUP_REVISION", saved.revision]]) {
+      if (value === undefined) delete process.env[key!]; else process.env[key!] = value;
+    }
+  });
+  process.env.BVR_DFSC_SETUP_PATH = path;
+  process.env.BVR_DFSC_SETUP_REVISION = createHash("sha256").update(raw).digest("hex");
+  await assertDfscConfigurationCurrent();
+  await writeFile(path, JSON.stringify({ runtimeDirectory: "another-runtime" }));
+  await assert.rejects(assertDfscConfigurationCurrent(), /Restart the session/);
+});
