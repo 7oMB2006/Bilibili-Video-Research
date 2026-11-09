@@ -118,8 +118,8 @@ export function takeLaunchContext(environment, expected, now) {
 function media(value, types) {
   keys(value, ['mimeType', 'data']);
   if (!types.includes(value.mimeType) || typeof value.data !== 'string'
-    || value.data.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value.data)
-    || !value.data.length) fail();
+    || value.data.length % 4 !== 0 || !value.data.length) fail();
+  // Canonical re-encoding checks the alphabet, padding and pad bits without a stack-growing regex.
   const bytes = Buffer.from(value.data, 'base64');
   if (bytes.toString('base64') !== value.data) fail();
   return bytes;

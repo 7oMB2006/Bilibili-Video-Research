@@ -14,12 +14,15 @@ const execute = promisify(execFile), repository = dirname(dirname(fileURLToPath(
 const options = {};
 for (let index = 2; index < process.argv.length; index += 2) {
   const key = process.argv[index], value = process.argv[index + 1];
-  assert.ok(["--desktop-root", "--output"].includes(key) && !options[key] && isAbsolute(value ?? ""),
-    "Use --desktop-root <built candidate checkout> --output <new absolute directory>");
+  assert.ok(["--desktop-root", "--desktop-exe", "--bvr-runtime", "--output"].includes(key) && !options[key] && isAbsolute(value ?? ""),
+    "Use --desktop-root <built candidate checkout> --output <new absolute directory> [--desktop-exe <packaged executable>] [--bvr-runtime <runtime checkout>]");
   options[key] = value;
 }
 assert.ok(options["--desktop-root"] && options["--output"]);
 const desktop = await realpath(resolve(options["--desktop-root"], "Desktop"));
+const executable = options["--desktop-exe"] ? await realpath(options["--desktop-exe"]) : undefined;
+const bvrRuntime = options["--bvr-runtime"] ? await realpath(options["--bvr-runtime"]) : repository;
+const runtime = executable ? join(dirname(executable), "resources", "runtime") : join(desktop, "runtime");
 const output = resolve(options["--output"]);
 await mkdir(output, { recursive: false });
 const profile = join(output, "isolated-profile"), root = join(profile, "step-runtime");
@@ -32,7 +35,7 @@ await writeFile(join(market, ".step-plugin", "marketplace.json"), JSON.stringify
 }));
 await mkdir(join(root, "bvr"));
 await writeFile(join(root, "bvr", "config.json"), JSON.stringify({
-  schemaVersion: 2, mode: "independent", hostAccess: "confirm", runtimeDirectory: repository,
+  schemaVersion: 2, mode: "independent", hostAccess: "confirm", runtimeDirectory: bvrRuntime,
   envFile: join(profile, "nonexistent-legacy-private.env"),
 }));
 await writeFile(join(root, "plugins", ".stepcode-preinstalled"), '["steppage"]');
@@ -46,7 +49,7 @@ const requireDesktop = createRequire(join(desktop, "package.json"));
 const { _electron: electron } = requireDesktop("playwright");
 const { closeDesktopFixtureAndWait } = await import(pathToFileURL(join(desktop, "scripts", "close-desktop-fixture.mjs")).href);
 const { packageFingerprint } = await import(pathToFileURL(join(desktop, "electron", "plugin-files.mjs")).href);
-const runtimeManifest = JSON.parse(await readFile(join(desktop, "runtime", "manifest.json"), "utf8"));
+const runtimeManifest = JSON.parse(await readFile(join(runtime, "manifest.json"), "utf8"));
 assert.ok(runtimeManifest.patches.includes("desktop-plugin-host-launch"));
 const video = join(profile, "offline.mp4");
 await execute(createRequire(import.meta.url)("ffmpeg-static"), [
@@ -122,8 +125,9 @@ const server = createServer(async (request, response) => {
       response.writeHead(429);
       response.end('{"error":"provider-body-must-not-escape"}');
     } else response.end(JSON.stringify({ choices: [{ message: { content: "isolated-native-bvr-visual-result" } }] }));
-  } catch {
-    failures.push("Unexpected fixture route, credential or payload");
+  } catch (error) {
+    const assertion = /verify-dfsc-electron\.mjs:(\d+):\d+/u.exec(error?.stack ?? "")?.[1] ?? "unknown";
+    failures.push(`Unexpected fixture route, credential or payload at assertion line ${assertion}`);
     if (!response.headersSent) response.writeHead(500);
     response.end("{}");
   }
@@ -197,7 +201,8 @@ const assertPrivate = value => {
   assert.doesNotMatch(JSON.stringify(value), /provider-body-must-not-escape|dfsc-launch-v1|DFSC_LAUNCH_CONTEXT|"broker"|"token"/);
 };
 try {
-  app = await electron.launch({ executablePath: requireDesktop("electron"), args: [desktop], cwd: desktop, env, timeout: 60000 });
+  app = await electron.launch({ executablePath: executable ?? requireDesktop("electron"),
+    args: executable ? [] : [desktop], cwd: desktop, env, timeout: 60000 });
   page = await app.firstWindow();
   page.on("pageerror", error => pageErrors.push(error.message));
   await app.evaluate(({ BrowserWindow, net, dialog, shell }, { preload, base }) => {
@@ -221,6 +226,8 @@ try {
   }, { preload, base });
   await page.getByRole("heading", { name: /^(让想法阶跃星辰|星辰因你而阶跃)$/ }).waitFor();
   assert.equal(await app.evaluate(({ app }) => app.getPath("userData")), profile);
+  assert.equal(await app.evaluate(({ app }) => app.isPackaged), Boolean(executable));
+  if (executable) assert.equal(await realpath(await app.evaluate(() => process.execPath)), executable);
   assert.deepEqual(await app.evaluate(({ BrowserWindow }) => {
     const preferences = BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences();
     return { sandbox: preferences.sandbox, contextIsolation: preferences.contextIsolation, nodeIntegration: preferences.nodeIntegration };
@@ -379,8 +386,11 @@ try {
   report = {
     bvrCommit: await revision(repository), desktopCommit: await revision(options["--desktop-root"]),
     verifierSha256: createHash("sha256").update(await readFile(fileURLToPath(import.meta.url))).digest("hex"),
-    desktopMainSha256: createHash("sha256").update(await readFile(join(desktop, "dist", "main.cjs"))).digest("hex"),
-    runtimeCommit: runtimeManifest.commit, realSourceElectron: true, defaultSandbox: true,
+    desktopMainSha256: createHash("sha256").update(executable
+      ? requireDesktop("@electron/asar").extractFile(join(dirname(executable), "resources", "app.asar"), "dist/main.cjs")
+      : await readFile(join(desktop, "dist", "main.cjs"))).digest("hex"),
+    runtimeCommit: runtimeManifest.commit, bvrRuntime, realSourceElectron: !executable,
+    realPackagedElectron: Boolean(executable), executable: executable ?? null, defaultSandbox: true,
     unchangedPluginManifest: true, nativeLauncher: true, productionConfirmationUi: true, realBvrMcp: true,
     realAccountsOrPaidRequests: false, transportFixture: "loopback-only", nativeAsrCall: false, packagedUpgrade: false,
     providerFixtureRequests: providerCalls.length, agentFixtureRequests: agentCalls.length, checks,

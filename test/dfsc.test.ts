@@ -65,6 +65,18 @@ test("generic hosted BVR pins one context, consumes its launch and never uses in
     assert.deepEqual(requests[before + 1].body.input, { audio: { mimeType: "audio/wav", data: "YWJjZA==" } });
     assert.equal(requests[before + 2].body.revision, version);
     assert.match(requests[before + 2].body.input.messages[0].content, /ASR TRANSCRIPT \(language evidence\):\nhosted result/);
+    const largeMedia = Buffer.alloc(4 * 1024 * 1024, 0xa5);
+    await writeFile(audio, largeMedia);
+    const largeAudioStart = requests.length;
+    assert.equal(await analyzeMediaWithProvider(audio, "transcribe large audio"), "hosted result");
+    assert.equal(requests[largeAudioStart + 1].body.input.audio.data, largeMedia.toString("base64"));
+    assert.equal(requests[largeAudioStart + 2].body.capability, "model.text");
+    const largeVideo = join(root, "fixture.mp4");
+    await writeFile(largeVideo, largeMedia);
+    assert.equal(await analyzeMediaWithProvider(largeVideo, "inspect large video"), "hosted result");
+    assert.equal(requests.at(-1)!.body.capability, "model.video");
+    assert.equal(requests.at(-1)!.body.input.video.data, largeMedia.toString("base64"));
+    await writeFile(audio, Buffer.from("abcd"));
     for (failure of ["DENIED", "AUTHORIZATION_REQUIRED", "STALE_CONTEXT", "PROVIDER_FAILED"]) {
       const failed = requests.length;
       await assert.rejects(analyzeMediaWithProvider(audio, "transcribe"), new RegExp(failure));
