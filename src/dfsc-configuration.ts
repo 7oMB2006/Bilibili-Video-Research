@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
+import { pathToFileURL } from "node:url";
+import { ConfigurationReader } from "../plugins/bilibili-video-research/server/configuration.mjs";
+
+let reader: ConfigurationReader | undefined;
 
 async function boundedText(path: string, limit: number): Promise<string> {
   const info = await stat(path);
@@ -11,6 +15,23 @@ async function boundedText(path: string, limit: number): Promise<string> {
 }
 
 export async function assertDfscConfigurationCurrent(): Promise<void> {
+  const setupPath = process.env.BVR_DFSC_SETUP_PATH;
+  const setupRevision = process.env.BVR_DFSC_SETUP_REVISION;
+  const packageDirectory = process.env.BVR_DFSC_PLUGIN_DIRECTORY;
+  const configurationRevision = process.env.BVR_DFSC_CONFIGURATION_REVISION;
+  if (setupPath !== undefined || setupRevision !== undefined || packageDirectory !== undefined || configurationRevision !== undefined) {
+    try {
+      if (!setupPath || !isAbsolute(setupPath) || !/^[a-f0-9]{64}$/.test(setupRevision ?? "")
+        || createHash("sha256").update(await boundedText(setupPath, 64 * 1024)).digest("hex") !== setupRevision) throw new Error();
+      if (packageDirectory !== undefined || configurationRevision !== undefined) {
+        if (!packageDirectory || !isAbsolute(packageDirectory) || !/^[a-f0-9]{64}$/.test(configurationRevision ?? "")) throw new Error();
+        reader ??= new ConfigurationReader(pathToFileURL(`${packageDirectory}/`));
+        if ((await reader.current()).revision !== configurationRevision) throw new Error();
+      }
+    } catch {
+      throw new Error("BVR configuration changed or is unavailable. Restart the session before another model request; no provider fallback is used.");
+    }
+  }
   const path = process.env.BVR_DFSC_CONFIG_PATH;
   const expected = process.env.BVR_DFSC_CONFIG_REVISION;
   if (path === undefined && expected === undefined) return;

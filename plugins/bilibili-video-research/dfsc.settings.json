@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "consumer": { "kind": "json-file-v1", "server": "bvr" },
+  "groups": [
+    {
+      "id": "main",
+      "title": "主力模型 / Main Model",
+      "fields": [
+        { "id": "provider", "label": "提供商 / Provider", "type": "enum", "required": true,
+          "default": "stepfun", "options": [
+            { "value": "stepfun", "label": "StepFun" }, { "value": "gemini", "label": "Gemini" }
+          ] },
+        { "id": "base_url", "label": "Step 接口地址 / Step Endpoint", "type": "text", "maxLength": 512,
+          "help": "仅阶跃官方 API 或 Plan 地址；Gemini 留空 / Official Step API or Plan; empty for Gemini" },
+        { "id": "api_key", "label": "主力 API Key / Main API Key", "type": "secret", "required": true },
+        { "id": "model", "label": "主力模型 / Main Model", "type": "text", "required": true, "maxLength": 160 }
+      ]
+    },
+    {
+      "id": "asr",
+      "title": "独立语音转写 / Separate ASR",
+      "fields": [
+        { "id": "asr_base_url", "label": "ASR 接口地址 / ASR Endpoint", "type": "text", "maxLength": 512 },
+        { "id": "asr_api_key", "label": "ASR API Key", "type": "secret" },
+        { "id": "asr_model", "label": "ASR 模型 / ASR Model", "type": "text", "maxLength": 160,
+          "help": "ASR 三项须同时填写，不借用主力连接 / Set all three; no main-connection fallback" }
+      ]
+    },
+    {
+      "id": "downloads",
+      "title": "独立模式下载设置 / Independent Downloads",
+      "fields": [
+        { "id": "cookies_file", "label": "Cookie 文件 / Cookie File", "type": "path", "selection": "file" },
+        { "id": "download_directory", "label": "临时下载目录 / Temporary Directory", "type": "path", "selection": "directory" },
+        { "id": "ffmpeg_path", "label": "FFmpeg 路径 / FFmpeg Path", "type": "path", "selection": "file" },
+        { "id": "http_proxy", "label": "下载代理 / Download Proxy", "type": "text", "maxLength": 512 },
+        { "id": "prefer_captions", "label": "优先字幕 / Prefer Captions", "type": "boolean", "default": true }
+      ]
+    }
+  ]
+}

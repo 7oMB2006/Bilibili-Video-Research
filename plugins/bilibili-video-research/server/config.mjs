@@ -123,19 +123,7 @@ export async function prepareLaunch(config, parent = process.env, options = {}) 
     environment.CODEX_VIDEO_PROVIDER = "stepfun";
     environment.BVR_DFSC_MODE = "1";
     if (!options.validateOnly) {
-      let host;
-      try {
-        host = JSON.parse(await boundedText(options.hostPath ?? join(dirname(defaultConfigPath), "host.json"), 4096, "DFSC host connection"));
-        const url = new URL(host.url);
-        if (host.version !== 1 || url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !url.port
-          || url.username || url.password || url.search || url.hash || url.pathname !== "/"
-          || !/^[a-f0-9]{64}$/.test(host.token)) throw new Error();
-      } catch {
-        throw new SetupError("Follow DFSC requires a running DFSC build with BVR host support. No independent-provider fallback is used.");
-      }
-      environment.BVR_DFSC_URL = host.url;
-      environment.BVR_DFSC_TOKEN = host.token;
-      environment.BVR_DFSC_RUNTIME_PID = String(options.runtimePid ?? process.ppid);
+      throw new SetupError("Follow DFSC requires the generic DFSC host v1 launcher. Legacy host.json is not used; no independent-provider fallback is used.");
     }
   }
   return {

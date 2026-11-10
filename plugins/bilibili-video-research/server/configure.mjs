@@ -11,20 +11,19 @@ try {
     const option = args[index];
     if (!["--profile", "--runtime", "--env-file", "--mode"].includes(option) || values[option] !== undefined
         || !args[index + 1] || args[index + 1].startsWith("--"))
-      throw new SetupError("Usage: node server/configure.mjs --profile <DFSC step-runtime> --runtime <BVR checkout> [--mode dfsc|independent] [--env-file <private file>] [--replace]");
+      throw new SetupError("Usage: node server/configure.mjs --profile <DFSC step-runtime> --runtime <BVR checkout> [--replace]; select model mode and keys in DFSC.");
     values[option] = args[++index];
   }
   if (!["--profile", "--runtime"].every(key => values[key] && isAbsolute(values[key]))
       || values["--env-file"] && !isAbsolute(values["--env-file"]))
     throw new SetupError("--profile, --runtime and --env-file must all be absolute paths.");
-  const mode = values["--mode"] ?? "dfsc";
-  if (!["dfsc", "independent"].includes(mode)) throw new SetupError("--mode must be dfsc or independent.");
+  if (values["--mode"] !== undefined || values["--env-file"] !== undefined)
+    throw new SetupError("Model mode and private environment files are no longer configured by this command. Use the DFSC plugin settings; no legacy authorization or key is migrated.");
   const config = {
-    schemaVersion: 2, mode, runtimeDirectory: values["--runtime"],
-    ...(mode === "dfsc" ? { hostAccess: "confirm" } : {}),
-    ...(values["--env-file"] ? { envFile: values["--env-file"] } : {}),
+    schemaVersion: 3, runtimeDirectory: values["--runtime"],
   };
-  const launch = await prepareLaunch(config, process.env, { validateOnly: true });
+  await prepareLaunch({ schemaVersion: 2, mode: "dfsc", hostAccess: "confirm",
+    runtimeDirectory: config.runtimeDirectory }, process.env, { validateOnly: true });
   const directory = join(values["--profile"], "bvr");
   await mkdir(directory, { recursive: true, mode: 0o700 });
   try {
@@ -34,7 +33,7 @@ try {
     if (error.code === "EEXIST") throw new SetupError("BVR config already exists. Review it before using --replace.");
     throw new SetupError("Could not save the private BVR configuration.");
   }
-  process.stdout.write(`Saved BVR path configuration: ${launch.provider} / ${launch.channel}. No credentials were copied and no provider request was made.\n`);
+  process.stdout.write("Saved the BVR runtime path only. Select the mode and independent keys in DFSC. No credentials were copied and no provider request was made.\n");
 } catch (error) {
   process.stderr.write(`BVR: ${error instanceof SetupError ? error.message : "Configuration failed."}\n`);
   process.exitCode = 1;

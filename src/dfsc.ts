@@ -1,49 +1,37 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { createHostClient, HostClientError, newRequestId, type HostClient } from "../plugins/bilibili-video-research/server/host-client/client.mjs";
+import type { HostContext, Invocation } from "../plugins/bilibili-video-research/server/host-client/protocol.mjs";
 import { assertDfscConfigurationCurrent } from "./dfsc-configuration.js";
 
-interface HostContext {
-  version: 1;
-  revision: string;
-  channel: "plan" | "api";
-  region: "cn" | "global";
-  model: string;
-  capabilities: { text: boolean; video: boolean; asr: boolean };
-}
 interface Operation { context: HostContext; signal?: AbortSignal }
 const operations = new AsyncLocalStorage<Operation>();
-export const followsDfsc = () => process.env.BVR_DFSC_MODE === "1";
+let client: HostClient | undefined, startupError: HostClientError | undefined;
+let attempted = false;
 
-async function hostRequest(path: string, data: unknown, signal?: AbortSignal): Promise<Record<string, any>> {
-  let url: URL;
-  const token = process.env.BVR_DFSC_TOKEN;
-  const runtimePid = Number(process.env.BVR_DFSC_RUNTIME_PID);
-  try {
-    url = new URL(process.env.BVR_DFSC_URL ?? "");
-    if (url.protocol !== "http:" || url.hostname !== "127.0.0.1" || !url.port || url.username || url.password
-      || url.pathname !== "/" || url.search || url.hash || !/^[a-f0-9]{64}$/.test(token ?? "")
-      || !Number.isSafeInteger(runtimePid) || runtimePid <= 0) throw new Error();
-  } catch { throw new Error("DFSC host connection is missing or invalid. No provider fallback is used."); }
-  let response: Response;
-  await assertDfscConfigurationCurrent();
-  try {
-    response = await fetch(new URL(path, url), {
-      method: "POST", redirect: "error", signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(300000)]) : AbortSignal.timeout(300000),
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ ...(data as object), runtimePid }),
-    });
-  } catch { throw new Error("DFSC host connection was interrupted. No provider fallback is used."); }
-  const result = await response.json() as Record<string, any>;
-  if (!response.ok) throw new Error(typeof result.error === "string" ? result.error : "DFSC host request failed; no fallback was used.");
-  return result;
+function host() {
+  if (!attempted && Object.keys(process.env).some(key => key.toUpperCase() === "DFSC_LAUNCH_CONTEXT")) {
+    attempted = true;
+    try {
+      client = createHostClient({ pluginId: "bilibili-video-research", consumer: "bvr",
+        fetch: (...args) => globalThis.fetch(...args) });
+      process.once("exit", () => client?.close());
+    } catch (error) {
+      startupError = error instanceof HostClientError ? error : new HostClientError("HOST_UNAVAILABLE");
+    }
+  }
+  if (startupError) throw startupError;
+  if (!client && process.env.BVR_DFSC_MODE === "1")
+    throw new Error("The legacy BVR host bridge is unsupported. Select a mode in an updated DFSC host and restart; no provider fallback is used.");
+  return client;
 }
+
+export const followsDfsc = () => host()?.mode === "follow";
 
 export async function withDfscOperation<T>(task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
   await assertDfscConfigurationCurrent();
+  if (signal?.aborted) throw new HostClientError("CANCELLED");
   if (!followsDfsc() || operations.getStore()) return task();
-  const context = await hostRequest("/context", {}, signal) as HostContext;
-  if (context.version !== 1 || !/^[a-f0-9]{48}$/.test(context.revision) || !context.capabilities
-    || !["plan", "api"].includes(context.channel) || !["cn", "global"].includes(context.region) || typeof context.model !== "string")
-    throw new Error("DFSC returned an invalid account/model context.");
+  const context = await host()!.context({ signal });
   return operations.run({ context, signal }, task);
 }
 
@@ -51,13 +39,22 @@ export async function analyzeWithDfsc(kind: "text" | "video" | "asr", prompt: st
   media?: { mimeType: string; data: string }): Promise<string> {
   return withDfscOperation(async () => {
     const operation = operations.getStore();
-    if (!operation) throw new Error("A DFSC research context is required.");
-    if (!operation.context.capabilities[kind])
-      throw new Error(kind === "asr"
-        ? "The DFSC host did not enable ASR for this context. Use captions, vision mode or explicit independent mode; no API fallback is used."
-        : `DFSC model ${operation.context.model} has no verified ${kind} support. Select a supported model or use explicit independent mode.`);
-    const result = await hostRequest("/complete", { revision: operation.context.revision, kind, prompt, media }, operation.signal);
-    if (typeof result.text !== "string" || !result.text.trim()) throw new Error("DFSC returned no research text.");
+    if (!operation) throw new HostClientError("HOST_UNAVAILABLE");
+    if (operation.signal?.aborted) throw new HostClientError("CANCELLED");
+    const capability = `model.${kind}` as const;
+    const available = operation.context.capabilities.find(item => item.id === capability);
+    if (!available?.available) throw new HostClientError(available?.reason ?? "CAPABILITY_UNAVAILABLE");
+    const base = { requestId: newRequestId(), revision: operation.context.revision };
+    const messages = [{ role: "user" as const, content: prompt }];
+    let invocation: Invocation<"model.text" | "model.video" | "model.asr">;
+    if (kind === "text") invocation = { ...base, capability: "model.text", input: { messages } };
+    else {
+      if (!media) throw new HostClientError("INVALID_REQUEST");
+      invocation = kind === "video" ? { ...base, capability: "model.video", input: { messages, video: media } }
+        : { ...base, capability: "model.asr", input: { audio: media } };
+    }
+    const result = await host()!.invoke(invocation, { signal: operation.signal });
+    if (result.type !== "text" || !result.text.trim()) throw new HostClientError("PROVIDER_FAILED");
     return result.text;
   });
 }

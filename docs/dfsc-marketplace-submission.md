@@ -1,143 +1,122 @@
-# DFSC community submission draft
+# DFSC Community Submission
 
-This is a marketplace submission candidate, not a published marketplace entry.
-The BVR server remains a standard MCP. The DFSC-specific resources live in
-`plugins/bilibili-video-research`; no private configuration is vendored.
+The `0.2.0` resource is an **unpublished generic-host v1 candidate**.
+The original BVR project still owns the adapter in
+`plugins/bilibili-video-research`; a separate DFSC-only repository is not needed.
+The BVR runtime and dependencies remain a separately prepared installation.
+Not installing dependencies automatically does not mean dependencies are banned:
+BVR uses the official MCP SDK, and its author lockfile remains authoritative.
 
-## Verify locally
-
-With BVR dependencies installed:
+## Verify the Candidate
 
 ```sh
+npm ci
 npm run build
 npm test
-node scripts/verify-dfsc-plugin.mjs --desktop "/absolute/path/to/staged/Desktop" --output "/absolute/path/to/a/new/verification-directory"
-node scripts/verify-dfsc-host.mjs --bridge-module "/absolute/path/to/compiled/DFSC/bvr-bridge.mjs" --output "/absolute/path/to/a/new/host-verification-directory"
+npm run verify:dfsc-host -- --desktop-root "/absolute/path/to/candidate/desktop-for-step-code"
 ```
 
-The integration script needs DFSC's staged `runtime/`, including the native
-management exports. It creates an isolated profile and local preview market,
-installs the plugin through DFSC's actual capability manager, checks the icon,
-classification, bilingual documentation, tutorial and author link cards, skill
-and `/bvr` resource loader, and completes MCP initialization and tool listing
-against the real local BVR process. It then uninstalls and reinstalls the
-resource, verifying that private path configuration and presentation survive.
-The installed package must retain a recorded marketplace source, not merely
-match an unrecorded local copy.
+The generic-host verifier loads the actual candidate broker, Step adapter,
+receipt store and mode/configuration stores from that checkout. It launches the
+actual BVR MCP through the installed plugin, processes local video using FFmpeg,
+and uses only fake accounts, a confirmation callback and isolated provider
+responses. It checks discovery without a model request, denial, per-launch
+approval reuse, provider failure without fallback, MCP cancellation reaching the
+provider, account replacement, fresh overseas routing and stale independent
+configuration blocking before network.
 
-The 2026-11-06 Windows verification uses DFSC main
-`12c13170f8f80945cfa245c1297b81d527f3ff23` (including merged host PR #204),
-with upstream runtime
-`81e79bc4b699148d6823fedde9b5e70d9a80255f` and its declared desktop overlays.
-The runtime pin and complete Windows patched-source hashes were compared with
-the current host manifest. The verifier used that packaged runtime and the
-current host's `Desktop/electron` modules via the explicit `--host-modules`
-option; it did not modify the package or claim a new graphical application build.
-The plugin needs the host to anchor relative MCP arguments to the plugin root.
-Earlier released installers and macOS/Linux have not been tested; a shared
-`0.6.0` package version alone is not a compatibility guarantee.
+This is **not** acceptance of the native runtime launcher, production Electron
+confirmation UI, real account entitlements, paid requests or installation upgrade.
+Those gates require separate host/plugin combination acceptance. A broker test
+callback that accepts the fixture consumer is not production provenance proof.
 
-The first script explicitly tests independent mode on that host. Follow
-DFSC mode additionally requires the `Desktop/electron/bvr-bridge.ts` host
-integration; it does not work just because plugin discovery works. Compile that
-module to ESM for the second script, which exercises the real BVR launcher, MCP
-tools/call and local FFmpeg against the actual bridge code. Its resident session,
-native confirmation and provider responses are fixtures, not real account/media
-acceptance. Both modes remain unpublished pending separate review.
+The original `verify-dfsc-host.mjs` shared BVR bridge verifier has been retired.
+The new plugin does not read `bvr/host.json` or send a self-reported runtime PID.
+Its public client/reader are pinned to DFSC candidate
+`fead9918e03618d1a25e1ee45a609c833512db74`; see the bundled provenance and MIT
+license in `server/host-client/`.
 
-It uses a deliberately invalid fixture key, never calls an analysis tool and
-does not verify provider billing, account access, video downloads or media
-quality. The fixture profile is **not** ready for paid analysis. The generated
-`bvr-local-preview` market contains only distributable plugin resources; it
-can be added manually to a disposable DFSC instance. Do not treat the fixture
-profile or environment file as distributable resources.
-
-## Prepare the marketplace PR
-
-The author-owned `dfsc.plugin.json` declares the reviewed `research` and
-`audio-video` categories and the keywords `视频研究`, `字幕`, `语音转写`.
-It also supplies Chinese/English descriptions and package-local guides, a
-community tutorial and explicit external links. These bytes must be synced and
-locked unchanged; do not duplicate classification in the registry or native
-marketplace manifest. Community taxonomy validation depends on community PR #3.
-
-After the BVR changes have been reviewed and committed, add an entry like this
-to the `plugins` array in the community market's `registry.json`:
-
-```json
-{
-  "id": "bilibili-video-research",
-  "description": "Bilibili video research: MCP launcher, research skill and /bvr. Requires an external BVR runtime and explicit provider configuration.",
-  "source": {
-    "repository": "7oMB2006/Bilibili-Video-Research",
-    "commit": "<replace-with-the-reviewed-full-40-character-commit-SHA>",
-    "path": "plugins/bilibili-video-research"
-  },
-  "license": "MIT",
-  "readme": "docs/plugins/bilibili-video-research.md"
-}
-```
-
-Use a real immutable SHA, not this placeholder or a floating branch/tag.
-Copy/adapt the plugin README into that market-maintained guide, preserving the
-companion-runtime requirement, permission/data disclosure and billing boundary.
-The market overlays its reviewed guide onto the installed resource README.
-
-From the community-market checkout, after reviewing the pinned source:
+Native resource discovery, install, documentation and remove/reinstall can be
+checked separately against a staged runtime and the current host modules:
 
 ```sh
-python3 scripts/sync-plugin.py --plugin bilibili-video-research
-python3 scripts/validate-marketplace.py --check
-python3 -m unittest discover -s tests -v
+node scripts/verify-dfsc-plugin.mjs --desktop "/absolute/path/to/staged/Desktop" --host-modules "/absolute/path/to/candidate/Desktop/electron" --output "/absolute/path/to/a/new/verification-directory"
 ```
 
-The sync step generates `plugins/bilibili-video-research/`,
-`registry.lock.json` and `.step-plugin/marketplace.json`. Do not hand-edit hashes
-or generated resources to bypass source review. Submission is a separate PR,
-not something the local verification script performs.
+That script does not sign a generic launch. It explicitly checks that manual
+startup without a launch context is refused. It does not invoke analysis tools.
+Use the generic-host verifier above for real BVR MCP tools/call evidence.
 
-Verify that generated market copy, rather than a second source-directory copy.
-When testing against a host checkout instead of staged helpers, explicitly
-select its `Desktop/electron` directory:
+### Native Source Electron Combination
+
+After building the compatible DFSC source and staging its runtime, run:
 
 ```sh
-node scripts/verify-dfsc-plugin.mjs --desktop "/absolute/path/to/staged/Desktop" --host-modules "/absolute/path/to/host/Desktop/electron" --output "/absolute/path/to/a/new/market-verification-directory" --marketplace "/absolute/path/to/dfsc-community-plugins" --marketplace-name dfsc-community
+npm run verify:dfsc-electron -- --desktop-root "/absolute/path/to/candidate/desktop-for-step-code" --output "/absolute/path/to/a/new/native-acceptance-directory"
 ```
 
-The marketplace directory must have a basename without spaces for the current
-DFSC native local-source parser. This check installs from that market through the
-real native manager, loads its skill and command, initializes the actual BVR MCP,
-and verifies remove/reinstall without requesting a model.
+This uses DFSC's existing locked Electron/Playwright installation, not new BVR
+runtime dependencies. The actual marketplace IPC installs the unmodified BVR
+resource; its fingerprint must match the source. The production native launcher,
+broker source checks, MCP handshake, BVR/FFmpeg processing and confirmation UI
+remain active. Only provider transports are instrumented to use isolated local
+responses, including the agent response that selects the actual BVR tool.
 
-## Review and availability gates
+The eight scenarios cover denial without repeated confirmation, per-launch
+approval reuse, provider failure without fallback, pending/in-flight cancellation,
+account replacement with a new approval, the actual independent settings form,
+independent startup/invocation without a host account, and independent revision
+changes blocking the existing process. It verifies the renderer sandbox and
+credential-free IPC/history, closes only its own application and removes its
+test profile. Screenshots and a redacted receipt remain in the output directory.
 
-The BVR source PR and the community-market PR can be reviewed together. A draft
-market PR may pin the source PR's immutable commit, but must not be merged until
-that source is reviewed and retained in BVR. After a squash/rebase merge, update
-the pin to the retained commit and rerun synchronization and verification.
-Further resource changes likewise require a new source commit and lock refresh;
-editing a branch alone never upgrades the pinned market copy.
+This is Windows source Electron evidence, not a packaged upgrade, native macOS,
+real OAuth/Plan entitlement or actual Bilibili no-caption ASR acceptance. The
+separate broker verifier's fixture consumer callback is not used by this script.
 
-The graphical configuration and Follow DFSC mode additionally require a
-compatible DFSC build. The host integration is merged, but that does not make
-it a feature of every released 0.6.0 installer.
-Until that host is delivered, keep the marketplace submission in draft rather
-than presenting the default hosted setup as ready for general users.
-Independent mode requires explicit private configuration and a tested native
-plugin-relative working directory; unsupported hosts must not silently fall
-back to another account, provider or billing route.
+Historical `0.1.x` discovery, icon and legacy-bridge results do not establish
+compatibility with this new declaration, configuration schema or authorization.
 
-The 2026-11-06 source validation passes type checking and all 43 tests
-(25 TypeScript and 18 launcher/resource/presentation tests).
-These are local checks, not cloud CI or real-account/media/billing acceptance.
-No dependency installation, external runtime, personal profile or credential
-file is included in the market resource.
+## Migration and Review Gates
 
-This directory intentionally uses `provider.example`, not `.env.example`:
-the current community validator excludes `.env` and `.env.*` resources.
-Runtime dependencies and media binaries are not bundled into the market.
-The MIT license covers this project's code and resource text. Resource version
-`0.1.1` replaces the old Bilibili-logo plugin icon with artwork supplied by the
-maintainer, with the exterior white margin made transparent. Supplying artwork
-does not establish its authorship or license; verify those independently before
-distribution. The icon does not imply endorsement by Bilibili, StepFun or DFSC.
+- Installation, an old BVR opt-in, MCP enablement and Full Access are not paid
+  approval. The generic host requires an explicit current mode and first-call
+  per-capability approval for follow mode.
+- Only the external runtime path is reused from the legacy setup. Old keys and
+  mode/approval are not imported automatically. Standalone clients are unchanged.
+- The candidate requires the updated external BVR runtime with
+  `dfscHostApiVersion: 1`, not merely a new installed resource directory.
+- The new `dfsc.host.json` and independent settings schema change the upgrade
+  contract. Do not promise a one-click old-install migration before the host
+  compatibility checks and migration workflow have been accepted.
+- The related host PRs are still candidates. Source CI does not make this
+  usable in the currently installed daily application.
+- Do not publish the market update or replace a daily installation as part of
+  source development or isolated fixture tests.
+
+## Prepare a Market Update
+
+1. Review and retain the BVR source change in the original repository.
+2. Verify the compatible host, external BVR runtime, installed resource and
+   explicit old-configuration migration together.
+3. Update the existing `bilibili-video-research` registry source commit to the
+   reviewed full 40-character SHA and preserve source path
+   `plugins/bilibili-video-research`. Never use a floating branch or tag.
+4. Update the market-maintained guide from the candidate README. The market
+   overlays that guide onto the installed technical README, so old instructions
+   about default follow mode or private environment files must not survive.
+5. Run `python3 scripts/sync-plugin.py --plugin bilibili-video-research`,
+   `python3 scripts/validate-marketplace.py --check`, and the market test suite.
+   Review the generated resource copy, native marketplace file and lock.
+6. Open a separate market PR. A draft may reference an immutable source PR
+   commit, but must not merge until the source is reviewed and retained.
+   After squash/rebase, refresh the SHA, synchronize and verify again.
+
+Author metadata remains in `dfsc.plugin.json`: reviewed categories, keywords,
+Chinese/English guides, community tutorial and explicit external links.
+Do not duplicate these into registry metadata or fabricate GitHub stars.
+Do not submit `node_modules`, private environment files, cookies, tokens,
+profiles or logs. Preserve both BVR and vendored DFSC MIT notices.
+
+The existing illustrated icon is unchanged in this update. Its use does not
+imply endorsement by Bilibili, StepFun or DFSC.

@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "hostApiVersion": 1,
+  "consumer": { "kind": "mcp-stdio", "server": "bvr" },
+  "capabilities": ["model.text", "model.video", "model.asr"]
+}

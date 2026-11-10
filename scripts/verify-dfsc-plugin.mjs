@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { cp, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { isolatedEnvironment, pluginRoot } from "../plugins/bilibili-video-research/server/config.mjs";
 
 const execute = promisify(execFile);
@@ -32,7 +30,6 @@ const profile = join(output, "profile", "step-runtime");
 const agentDir = join(profile, "agent");
 const marketplace = options["--marketplace"] ?? join(output, "bvr-local-preview");
 const marketplaceName = options["--marketplace-name"] ?? "bvr-local-preview";
-const fixtureEnv = join(output, "fixture-provider.env");
 await mkdir(agentDir, { recursive: true });
 if (!options["--marketplace"]) {
   await mkdir(join(marketplace, ".step-plugin"), { recursive: true });
@@ -43,10 +40,6 @@ if (!options["--marketplace"]) {
       description: "Local BVR companion preview. A separately configured runtime is required." }],
   }, null, 2));
 }
-await writeFile(fixtureEnv, [
-  "CODEX_VIDEO_PROVIDER=stepfun", "STEPFUN_API_KEY=offline-fixture-not-a-real-key",
-  "STEPFUN_BASE_URL=https://api.stepfun.com/step_plan/v1", "",
-].join("\n"), { mode: 0o600 });
 
 // Set isolation before importing the real DFSC/upstream management bundle.
 const isolated = isolatedEnvironment(process.env, {});
@@ -123,36 +116,22 @@ assert.ok(loader.getPrompts().prompts.some(item => item.name === "bvr"));
 check("Real DFSC resource loader resolves skill and /bvr prompt");
 const installed = join(profile, "plugins", "bilibili-video-research");
 await execute(process.execPath, [join(installed, "server", "configure.mjs"), "--profile", profile,
-  "--runtime", repository, "--mode", "independent", "--env-file", fixtureEnv], { env: process.env, timeout: 15_000 });
-const client = new Client({ name: "bvr-dfsc-offline-verification", version: "0.1.0" }, { capabilities: {} });
-const transport = new StdioClientTransport({
-  command: process.execPath, args: [join(installed, "server", "start.mjs")], cwd: output,
-  env: { ...process.env, STEPFUN_API_KEY: "desktop-credential-must-not-be-used" }, stderr: "pipe",
-});
-let stderr = "";
-transport.stderr?.on("data", data => { stderr += data.toString(); });
-try {
-  await client.connect(transport, { timeout: 30_000 });
-  const tools = await client.listTools({}, { timeout: 30_000 });
-  report.tools = tools.tools.map(tool => tool.name).sort();
-  assert.deepEqual(report.tools, ["analyze_bilibili_video", "analyze_video", "inspect_video_window"]);
-  assert.equal(stderr, "");
-  check("Real BVR process: MCP initialize and three tool declarations (no tools/call)");
-} finally {
-  await client.close();
-}
+  "--runtime", repository], { env: process.env, timeout: 15_000 });
+await assert.rejects(execute(process.execPath, [join(installed, "server", "start.mjs")], {
+  env: { ...process.env, STEPFUN_API_KEY: "desktop-credential-must-not-be-used" }, timeout: 10000,
+}), error => /HOST_UNAVAILABLE/.test(error.stderr) && error.stdout === "");
+check("Native install and runtime setup do not grant generic host authorization");
 const saved = await readFile(join(profile, "bvr", "config.json"), "utf8");
 await manager.mutate({ action: "plugin-remove", id: "bilibili-video-research" }, AbortSignal.timeout(30_000));
 assert.ok(!(await manager.catalog()).plugins.some(item => item.id === "bilibili-video-research"));
 assert.equal(await readFile(join(profile, "bvr", "config.json"), "utf8"), saved);
-assert.ok((await stat(fixtureEnv)).isFile());
-check("Native uninstall preserves independent config and environment file");
+check("Native uninstall preserves runtime setup without preserving authorization");
 await manager.mutate({ action: "plugin-install", name: "bilibili-video-research", marketplace: marketplaceName },
   AbortSignal.timeout(30_000));
 catalog = await library.project(await manager.catalog());
 await verifyPresentation(catalog.plugins.find(item => item.id === "bilibili-video-research"));
 const result = await execute(process.execPath, [join(installed, "server", "start.mjs"), "--check"], { env: process.env });
-assert.match(result.stdout, /stepfun \/ plan/);
-check("Native reinstall keeps explicit Plan selection");
+assert.match(result.stdout, /runtime configuration OK/);
+check("Native reinstall keeps runtime path, not legacy mode or paid approval");
 await writeFile(join(output, "verification.json"), `${JSON.stringify(report, null, 2)}\n`);
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

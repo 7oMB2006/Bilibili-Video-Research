@@ -3,13 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "dfscConfigurationVersion": 1,
+  "dfscHostApiVersion": 1,
   "type": "module",
   "description": "Evidence-aware Bilibili video research MCP for language, vision, and multimodal analysis.",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "tsx src/index.ts",
     "test": "tsx --test test/*.test.ts && npm run test:dfsc",
-    "test:dfsc": "node --test test/dfsc-plugin.test.mjs"
+    "test:dfsc": "node --test test/dfsc*.test.mjs",
+    "verify:dfsc-host": "node --import tsx scripts/verify-dfsc-generic-host.mjs",
+    "verify:dfsc-electron": "node scripts/verify-dfsc-electron.mjs"
   },
   "engines": {
     "node": ">=24"

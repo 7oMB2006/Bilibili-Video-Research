@@ -7,6 +7,7 @@ import { createRequire } from "node:module";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { hostLaunch } from "./dfsc-launch.mjs";
 import {
   configurationRevision, isolatedEnvironment, pluginRoot, prepareLaunch, readConfiguration, validateProvider,
 } from "../plugins/bilibili-video-research/server/config.mjs";
@@ -23,9 +24,9 @@ async function fixture(t) {
   t.after(() => rm(root, { recursive: true, force: true }));
   const runtime = join(root, "runtime with spaces");
   await mkdir(join(runtime, "src"), { recursive: true });
-  await writeFile(join(runtime, "package.json"), JSON.stringify({ name: "bilibili-video-research-mcp", type: "module" }));
+  await writeFile(join(runtime, "package.json"), JSON.stringify({ name: "bilibili-video-research-mcp", type: "module", dfscHostApiVersion: 1 }));
   await writeFile(join(runtime, "src", "index.ts"),
-    `process.stdout.write(JSON.stringify({provider:process.env.CODEX_VIDEO_PROVIDER,key:process.env.STEPFUN_API_KEY,base:process.env.STEPFUN_BASE_URL,foreign:process.env.GEMINI_API_KEY,inject:process.env.NODE_OPTIONS,envFile:process.env.DOTENV_CONFIG_PATH,override:process.env.DOTENV_CONFIG_OVERRIDE,quiet:process.env.DOTENV_CONFIG_QUIET,configPath:process.env.BVR_DFSC_CONFIG_PATH,revision:process.env.BVR_DFSC_CONFIG_REVISION,cwd:process.cwd()}));`);
+    `process.stdout.write(JSON.stringify({provider:process.env.CODEX_VIDEO_PROVIDER,key:process.env.STEPFUN_API_KEY,base:process.env.STEPFUN_BASE_URL,foreign:process.env.GEMINI_API_KEY,inject:process.env.NODE_OPTIONS,envFile:process.env.DOTENV_CONFIG_PATH,override:process.env.DOTENV_CONFIG_OVERRIDE,quiet:process.env.DOTENV_CONFIG_QUIET,configPath:process.env.BVR_DFSC_SETUP_PATH,revision:process.env.BVR_DFSC_SETUP_REVISION,mode:JSON.parse(process.env.DFSC_LAUNCH_CONTEXT).mode,legacyToken:process.env.BVR_DFSC_TOKEN,cwd:process.cwd()}));`);
   for (const dependency of ["tsx", "dotenv", "@modelcontextprotocol/sdk", "ffmpeg-static", "yt-dlp-exec"]) {
     const directory = join(runtime, "node_modules", dependency);
     await mkdir(directory, { recursive: true });
@@ -44,13 +45,13 @@ async function fixture(t) {
 test("DFSC manifest declares real resources and no install hook", async () => {
   const manifest = JSON.parse(await readFile(join(pluginRoot, "step.plugin.json"), "utf8"));
   assert.equal(manifest.id, "bilibili-video-research");
-  assert.equal(manifest.version, "0.1.1");
+  assert.equal(manifest.version, "0.2.0");
   assert.deepEqual(manifest.skills, ["skills"]);
   assert.deepEqual(manifest.commands, ["commands"]);
   assert.equal(manifest.entry, undefined);
   assert.equal(manifest.provision, undefined);
   assert.deepEqual(manifest.mcpServers.bvr.args, ["server/start.mjs"]);
-  assert.deepEqual(manifest.mcpServers.bvr.env, { STEPFUN_API_KEY: "bvr-managed-provider-context" });
+  assert.deepEqual(manifest.mcpServers.bvr.env, { STEPFUN_API_KEY: "DFSC_INDEPENDENT_PLUGIN" });
   assert.equal(manifest.mcpServers.bvr.tool_timeout_sec, 600);
   for (const path of ["commands/bvr.md", "skills/bilibili-video-research/SKILL.md", "server/start.mjs", "LICENSE"])
     assert.ok((await stat(join(pluginRoot, path))).isFile());
@@ -169,7 +170,7 @@ test("an uninstalled runtime reports a setup error without invoking npm", async 
   await assert.rejects(prepareLaunch(config), /npm ci completed/);
 });
 
-test("a copied plugin starts with only its private provider environment", async t => {
+test("a copied plugin uses its native follow mode, ignoring legacy mode and all old provider credentials", async t => {
   const { root, runtime, envFile, config } = await fixture(t);
   const profile = join(root, "profile");
   const installed = join(profile, "plugins", "bilibili-video-research");
@@ -178,18 +179,22 @@ test("a copied plugin starts with only its private provider environment", async 
   await writeFile(join(profile, "bvr", "config.json"), JSON.stringify(config));
   const result = await execute(process.execPath, [join(installed, "server", "start.mjs")], {
     cwd: root, timeout: 15_000,
-    env: { ...process.env, STEPFUN_API_KEY: "desktop-secret", GEMINI_API_KEY: "foreign-secret" },
+    env: { ...process.env, DFSC_LAUNCH_CONTEXT: JSON.stringify(hostLaunch()),
+      STEPFUN_API_KEY: "desktop-secret", GEMINI_API_KEY: "foreign-secret", BVR_DFSC_TOKEN: "old-token" },
   });
   const output = JSON.parse(result.stdout);
   assert.equal(result.stderr, "");
-  assert.equal(output.key, "bvr-test-key");
+  assert.equal(output.key, undefined);
+  assert.equal(output.mode, "follow");
+  assert.equal(output.legacyToken, undefined);
   assert.equal(output.foreign, undefined);
   assert.equal(output.cwd, runtime);
-  assert.equal(output.envFile, envFile);
+  assert.equal(output.envFile, process.platform === "win32" ? "NUL" : "/dev/null");
   assert.equal(output.override, "");
   assert.equal(output.quiet, "true");
   assert.equal(output.configPath, join(profile, "bvr", "config.json"));
-  assert.equal(output.revision, await configurationRevision(output.configPath));
+  const { createHash } = await import("node:crypto");
+  assert.equal(output.revision, createHash("sha256").update(await readFile(output.configPath)).digest("hex"));
 });
 
 test("launcher fails closed without private setup and writes no protocol output", async t => {
@@ -198,8 +203,30 @@ test("launcher fails closed without private setup and writes no protocol output"
   await cp(pluginRoot, installed, { recursive: true });
   await assert.rejects(execute(process.execPath, [join(installed, "server", "start.mjs")], {
     timeout: 10_000, env: { ...process.env, STEPFUN_API_KEY: "desktop-secret" },
-  }), error => error.code === 1 && error.stdout === "" && /not configured/.test(error.stderr)
+  }), error => error.code === 1 && error.stdout === "" && /HOST_UNAVAILABLE/.test(error.stderr)
     && !error.stderr.includes("desktop-secret"));
+});
+
+test("native launcher rejects oversized runtime setup before starting a child", async t => {
+  const { root } = await fixture(t);
+  const profile = join(root, "profile");
+  const installed = join(profile, "plugins", "bilibili-video-research");
+  await cp(pluginRoot, installed, { recursive: true });
+  await mkdir(join(profile, "bvr"), { recursive: true });
+  await writeFile(join(profile, "bvr", "config.json"), " ".repeat(65537));
+  await assert.rejects(execute(process.execPath, [join(installed, "server", "start.mjs")], {
+    timeout: 10_000, env: { ...process.env, DFSC_LAUNCH_CONTEXT: JSON.stringify(hostLaunch()) },
+  }), error => error.code === 1 && error.stdout === "" && /too large/.test(error.stderr));
+});
+
+test("legacy configuration flags cannot select a new mode or import credentials", async t => {
+  const { root, runtime, envFile } = await fixture(t);
+  for (const option of [["--mode", "dfsc"], ["--env-file", envFile]]) {
+    await assert.rejects(execute(process.execPath, [join(pluginRoot, "server", "configure.mjs"),
+      "--profile", join(root, "profile"), "--runtime", runtime, ...option], { timeout: 10_000 }),
+    error => error.code === 1 && /no legacy authorization or key is migrated/.test(error.stderr));
+  }
+  await assert.rejects(stat(join(root, "profile", "bvr", "config.json")), { code: "ENOENT" });
 });
 
 test("real dotenv cannot change the pinned file or enable protocol-breaking logs", async t => {
@@ -226,7 +253,7 @@ test("configuration tool saves paths only, refuses overwrites and survives resou
   const { root, runtime, envFile } = await fixture(t);
   const profile = join(root, "profile");
   const args = [join(pluginRoot, "server", "configure.mjs"),
-    "--profile", profile, "--runtime", runtime, "--mode", "independent", "--env-file", envFile];
+    "--profile", profile, "--runtime", runtime];
   const result = await execute(process.execPath, args, { timeout: 10_000 });
   assert.match(result.stdout, /No credentials were copied/);
   const path = join(profile, "bvr", "config.json");
@@ -237,7 +264,7 @@ test("configuration tool saves paths only, refuses overwrites and survives resou
   const installed = join(profile, "plugins", "bilibili-video-research");
   await cp(pluginRoot, installed, { recursive: true });
   const checked = await execute(process.execPath, [join(installed, "server", "start.mjs"), "--check"]);
-  assert.match(checked.stdout, /stepfun \/ api/);
+  assert.match(checked.stdout, /runtime configuration OK/);
   assert.ok(!checked.stdout.includes("bvr-test-key"));
   await rm(installed, { recursive: true });
   await cp(pluginRoot, installed, { recursive: true });
@@ -245,17 +272,19 @@ test("configuration tool saves paths only, refuses overwrites and survives resou
   assert.ok((await stat(envFile)).isFile());
 });
 
-test("Follow DFSC is default and saves an explicit confirmation opt-in without credentials", async t => {
+test("the legacy setup can still locate the runtime but does not grant generic host authorization", async t => {
   const { root, runtime } = await fixture(t);
   const profile = join(root, "hosted profile");
   await execute(process.execPath, [join(pluginRoot, "server", "configure.mjs"),
     "--profile", profile, "--runtime", runtime], { timeout: 10000 });
   const config = JSON.parse(await readFile(join(profile, "bvr", "config.json"), "utf8"));
-  assert.equal(config.mode, "dfsc");
-  assert.equal(config.hostAccess, "confirm");
+  assert.equal(config.schemaVersion, 3);
+  assert.equal(config.mode, undefined);
+  assert.equal(config.hostAccess, undefined);
   assert.equal(config.envFile, undefined);
-  await assert.rejects(prepareLaunch(config, {}, { hostPath: join(profile, "bvr", "host.json") }), /requires a running DFSC/);
-  assert.equal((await prepareLaunch(config, {}, { validateOnly: true })).channel, "follow-dfsc");
+  await assert.rejects(prepareLaunch(config, {}, { hostPath: join(profile, "bvr", "host.json") }), /BVR config must/);
+  await assert.rejects(execute(process.execPath, [join(pluginRoot, "server", "configure.mjs"),
+    "--profile", profile, "--runtime", runtime, "--mode", "dfsc", "--replace"]), /no legacy authorization/);
 });
 
 test("Follow DFSC strips keys and channel overrides and pins dotenv away from local .env", async t => {
@@ -267,9 +296,9 @@ test("Follow DFSC strips keys and channel overrides and pins dotenv away from lo
   const hosted = { ...config, schemaVersion: 2, mode: "dfsc", hostAccess: "confirm" };
   const hostPath = join(root, "host.json");
   await writeFile(hostPath, JSON.stringify({ version: 1, url: "http://127.0.0.1:12345", token: "a".repeat(64) }));
-  const launch = await prepareLaunch(hosted, { ...process.env, STEPFUN_API_KEY: "desktop-secret" }, { hostPath, runtimePid: 23456 });
+  const launch = await prepareLaunch(hosted, { ...process.env, STEPFUN_API_KEY: "desktop-secret" }, { validateOnly: true });
   assert.equal(launch.environment.BVR_DFSC_MODE, "1");
-  assert.equal(launch.environment.BVR_DFSC_RUNTIME_PID, "23456");
+  assert.equal(launch.environment.BVR_DFSC_RUNTIME_PID, undefined);
   for (const key of ["STEPFUN_API_KEY", "GEMINI_API_KEY", "STEPFUN_BASE_URL", "STEPFUN_VIDEO_MODEL"])
     assert.equal(launch.environment[key], undefined);
   assert.equal(launch.environment.BILIBILI_COOKIES_FILE, "D:/private/cookies.txt");
@@ -282,7 +311,7 @@ test("Follow DFSC refuses remote, malformed and credential-bearing host descript
   const hostPath = join(root, "host.json");
   for (const url of ["https://example.com", "http://localhost:12345", "http://user:secret@127.0.0.1:12345", "http://127.0.0.1:12345/path"]) {
     await writeFile(hostPath, JSON.stringify({ version: 1, url, token: "a".repeat(64) }));
-    await assert.rejects(prepareLaunch(hosted, {}, { hostPath }), /requires a running DFSC/);
+    await assert.rejects(prepareLaunch(hosted, {}, { hostPath }), /requires the generic DFSC/);
   }
 });
 

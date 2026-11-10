@@ -39,8 +39,9 @@ DFSC mode, the host binds requests to this session's applied Step account,
 channel and model, with native approval. In independent mode, the private BVR
 configuration controls billing instead; changing DFSC login does not change it.
 Never silently switch channels, select another model or fall back to another
-provider. If the host context expires, start a new research only after the user
-has confirmed the intended account. Both Plan and API use the dedicated
+provider. If the host context expires or changes, ask for an explicit session
+restart and recheck the intended account; do not retry with a refreshed context
+inside the same research. Both Plan and API use the dedicated
 `stepaudio-2.5-asr` model for no-caption transcription on the selected account,
 region and channel. Summarize transcripts with the current session model.
 Report ASR failures without retrying on direct API or another provider.

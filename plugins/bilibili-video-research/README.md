@@ -1,139 +1,161 @@
 # BVR for DFSC
 
-这是 Bilibili Video Research 的 DFSC 配套插件，资源版本 `0.1.1`。
-提供 BVR MCP 启动声明、视频研究技能、`/bvr` 提示命令和图标。
+资源版本 `0.2.0`，**通用宿主协议 v1 适配候选，尚未发布到市场**。
+本版改的是 DFSC 启动、配置和账户调用链，不改变视频研究工具的用途。
+StepAudio 不在本次迁移范围。
 
-本插件不是 BVR 服务端的一键安装器。它不自动下载 Node.js、安装 npm 依赖、
-读取 DFSC 登录凭据；MCP 本体仍在自己的项目目录运行。
-需要支持插件相对工作目录的 DFSC 宿主、PATH 上的 Node.js 24+、
-已完成 `npm ci` 的 BVR checkout（包括 tsx 开发依赖）。
-默认跟随 DFSC 的账户、渠道和会话模型，需要包含 BVR 宿主桥的新构建；
-不支持宿主桥的旧版本仅能使用显式的独立模式。插件发现/安装的验证基线为
-DFSC main `fb4828b`，不表示该基线已经具有宿主桥。
-早期已发布安装包尚未验证，不能仅凭 `0.6.0` 版本号判断兼容性。
-其他客户端继续使用原有 MCP 配置，不受此插件影响。
+## 运行条件
 
-## 安装和配置
+- 需要支持 `dfsc.host.json`、通用模式设置和单次启动授权的 DFSC 构建。
+  不能仅凭应用版本号判断兼容性，也不支持旧 BVR 专用桥。
+- PATH 上须已有 Node.js 24+；宿主不自动安装 Node 或执行 npm/pip。
+- BVR 本体仍在另一个项目目录运行，须显式更新到本候选，
+  具有 `dfscHostApiVersion: 1` 标记并完成 `npm ci`。
+  插件更新不会自动更新另一目录的 BVR 本体。
+- 其他客户端直接启动 BVR 时仍沿用原有独立配置方式。
 
-1. 在插件目录之外准备 BVR 本体，按项目根 README 运行 `npm ci`、
-   `npm run build` 和 `npm test`。当前 build 是类型检查，不生成 dist。
-   运行时使用已安装的 tsx 加载源码，不在启动时执行 npm install。
-2. 从 DFSC 市场安装本插件。也可以先将本项目 `plugins/bilibili-video-research`
-   作为一个本地市场条目进行隔离验收；仅将 GitHub 项目 URL 填入插件列表
-   不会自动生成可安装资源。本插件尚未因存在于 BVR 仓库而自动收录。
-3. 在 DFSC 中完成账户登录，选择此会话要使用的 Step 模型。
-   跟随模式不需要另外填写 Key。第一次请求模型时，DFSC 会确认账户渠道、
-   地区和模型，并说明会消耗该账户额度；拒绝后不会改走其他渠道。
-4. 找到 DFSC 数据目录里的 `step-runtime`，运行下方配置命令。
-   `<PLUGIN>` 是已经安装的插件目录，通常是
-   `<DFSC数据目录>/step-runtime/plugins/bilibili-video-research`。
+## 安装与本体路径
+
+1. 在插件目录之外准备本候选的 BVR 本体，运行 `npm ci`、`npm run build`、
+   `npm test`。build 是类型检查；启动使用已安装的 tsx，不现场安装依赖。
+2. 将 `plugins/bilibili-video-research` 按 DFSC 市场规范安装。
+   本候选需要隔离验收，不会因为源码存在就自动成为正式市场版本。
+3. 运行下方命令，只登记本机运行环境：
 
 ```powershell
 node "<PLUGIN>/server/configure.mjs" --profile "<DFSC数据目录>/step-runtime" --runtime "D:/Tools/Bilibili-Video-Research"
 node "<PLUGIN>/server/start.mjs" --check
 ```
 
-所有参数都要替换为本机绝对路径。`--profile` 指向 `step-runtime`，不是其
-上一级数据目录，也不是插件目录。已有配置不会被覆盖；核对后可用 `--replace`。
-检查命令只验证本地配置和依赖，不调用提供商，不验证 Key 的有效性或额度。
+`<PLUGIN>` 是实际安装目录；所有路径须为本机绝对路径。
+已有设置不覆盖，确实需要替换时先核对，再加 `--replace`。
+检查只核对本体路径和依赖，不申请模型授权、不验证账户权益。
 
-配置保存在 `<DFSC数据目录>/step-runtime/bvr/config.json`，记录 BVR 本体路径、
-模式和宿主请求需确认的选择。它不在插件目录内，卸载重装不会删除该配置或私密文件。
-新建会话或按 DFSC 提示重启会话，让 MCP、技能和 `/bvr` 重新加载。
+路径保存在 `step-runtime/bvr/config.json`：
 
-### DFSC 插件中心配置
-
-包含插件中心的新构建可以直接在「插件 → Bilibili Video Research → 配置」
-选择本体目录、跟随模式或独立模式，无需手写配置文件。本体需要
-`dfscConfigurationVersion: 1` 标记和完整依赖；检查环境不验证账户或请求模型。
-
-独立模式下，主力模型与 ASR 各自填写接口地址、API Key 和模型名；
-两组连接互不借用。已保存的 Key 不回显，留空保留，输入新值替换。
-当前表单仅支持阶跃官方地址及 Step ASR 协议；Gemini 等已有独立配置保留，
-不会被表单自动改写，继续通过配置命令维护。
-
-保存后手动重启需要使用新配置的会话。配置或私密环境文件变化后，
-旧插件进程会在下一次模型请求前拒绝继续运行，ASR 与总结之间也会重新检查；
-不会因为未重启而继续使用旧的直调 Key。在途请求已经发生的计费不能撤销。
-通过其他客户端直接启动的 BVR 不受此 DFSC 启动检查影响。
-
-高级设置支持 Cookie 文件、临时下载目录、下载 HTTP 代理和优先字幕。
-每次研究在指定下载根目录下分配独立临时目录并沿用现有清理逻辑。
-下载代理显式传给 yt-dlp 的探测与下载，不承诺模型请求也经过该代理。
-
-## 跟随模式
-
-- DFSC 在主进程代发请求，不向 BVR 导出账户 Key、登录 Cookie 或凭据文件。
-  仅有当前应用实例的本地受限连接凭证；它不是 Step API Key。
-- MCP 声明中的 `STEPFUN_API_KEY=bvr-managed-provider-context` 是非密钥占位值，
-  用于阻止上游给启动器自动补入宿主 Key；启动器不会将它用于模型请求。
-- 使用已生效的账户与会话模型，不使用尚未登录成功的选择、其他会话模型
-  或旧 `.env` 内的 Key/地址。国内/海外的 API、Plan 地址分别配对，不回退。
-- 一次研究固定一个上下文版本；账户、渠道、模型、会话或进程变化后，
-  旧请求失效。在途请求取消，已发送的请求可能已经消耗额度，无法撤销计费。
-- 文本使用当前模型；视频接受 BVR 稳定模型 `step-3.7-flash`、已有兼容记录的
-  `step-5-preview`，或宿主明确声明支持 video 的模型。不支持则要求用户选择，
-  不自动改模型。兼容记录不等于所有地区、套餐的质量保证。
-- 无字幕音频转写与聊天模型不是同一能力：Plan 和 API 渠道均使用
-  `stepaudio-2.5-asr` 专用模型，沿用当前账户、地区及渠道的 ASR 端点；
-  转写后的总结使用当前会话模型。失败会明确报错，不自动切换为直调 API。
-  本次本地验证不代表已复测真实账户的可用性或计费。
-- 单次媒体上限 23 MiB；较大视频请指定较短区间。
-- 可选 `--env-file` 在跟随模式下只读取 Bilibili Cookie 路径、FFmpeg 和代理
-  等本地下载设置，忽略提供商密钥、地址和模型，且不加载 BVR 目录的 `.env`。
-- 原生确认按当前会话/账户/模型授权，不根据插件名称自动授信。
-  这是同一系统用户下的本地集成，不是恶意本地可执行插件的文件系统沙箱；
-  不要安装不可信插件或共享 `bvr/host.json`。
-
-## 独立模式
-
-其他提供商、媒体专用模型或旧版 DFSC 可选择独立配置，不自动降级进入此模式。
-将 `provider.example` 放到插件外的私密位置并填写自己的提供商、Key 和渠道地址：
-
-```powershell
-node "<PLUGIN>/server/configure.mjs" --profile "<DFSC数据目录>/step-runtime" --runtime "D:/Tools/Bilibili-Video-Research" --mode independent --env-file "D:/Private/BVR/provider.env" --replace
+```json
+{
+  "schemaVersion": 3,
+  "runtimeDirectory": "D:/Tools/Bilibili-Video-Research"
+}
 ```
 
-原有 schemaVersion 1 配置继续保持独立模式，不会升级后自动改用 DFSC 账户。
+新启动器仅复用旧 schema 1/2 文件中的 `runtimeDirectory`；
+旧 `mode`、`hostAccess` 和 `envFile` 不会成为新模式、授权或独立 Key。
+不要将秘密复制到上面的运行环境文件。
 
-- 必须在私密文件中明确设置 `CODEX_VIDEO_PROVIDER`。
-- StepFun 必须同时显式设置 `STEPFUN_API_KEY` 和 `STEPFUN_BASE_URL`：
-  官方 API 用 `https://api.stepfun.com/v1`，Plan 用
-  `https://api.stepfun.com/step_plan/v1`；海外使用对应的 `api.stepfun.ai` 地址。
-  本适配器暂不接受其他地址。
-- Gemini 必须显式选择并提供自己的 Key。缺失配置时拒绝启动，不静默回退。
-- ASR 可单独设置 `STEPFUN_ASR_BASE_URL`、`STEPFUN_ASR_API_KEY` 和
-  `STEPFUN_ASR_MODEL`。前两者只设置一项会报错，不回退到主力连接；
-  都不设置时，保留旧版共用主力地址与 Key 的行为。插件中心始终写入两组独立连接。
-- 启动器只继承基础系统环境；DFSC 传入的 Step Key、其他客户端密钥、
-  Node 注入选项等不会透传给 BVR。BVR 重新加载 dotenv 时也只读取指定的私密文件。
-- **独立模式下，DFSC 当前聊天切换 API/Plan 不会修改 BVR 的独立配置。**
-  需要使用与目标渠道匹配的凭据；本地检查不能证明实际按哪种额度扣费。
-- 工具会联网访问 Bilibili，下载临时媒体，并可能把媒体、字幕、公开元数据
-  和采样评论发送给所选提供商，消耗该提供商的余额或额度。
-- Cookie 可选，仅使用用户明确授权的本地文件。不能绕过付费、私密或登录权限。
-  可选路径建议使用绝对路径；临时文件由 BVR 现有逻辑处理。
+## 选择模式
+
+进入「插件 → Bilibili Video Research → 配置」，显式选择模式并保存，
+再重启需要使用 BVR 的会话。安装、启用 MCP、保存模式和 Full Access 都不是付费授权。
+缺少新宿主上下文、旧本体或配置修订不匹配时拒绝启动，不自动切回旧桥。
+
+### 跟随 DFSC 会话
+
+- 使用实际调用会话已生效的官方 Step 账户、地区及 Plan/API 渠道。
+  文本和视频跟随已应用模型，不使用尚未应用的预选值。
+- 首次调用各项能力时由 DFSC 弹确认，提示插件、模型、地区、渠道、数据发送与额度消耗。
+  拒绝后不反复弹窗，也不改用独立 Key 或其他计费渠道。
+- 只持有绑定安装实例和单次启动的本地 bearer；不获得 Step Key、OAuth 或 Cookie。
+  标准客户端消费启动环境后立即删除载荷，普通下载/FFmpeg 后代不继承该 bearer。
+- 一次研究固定一个上下文 revision；ASR 与后续总结共用该修订。
+  账户、模型、模式、配置或启动失效后，旧请求拒绝，须显式重启。
+- 文本申请 `model.text`，视频申请 `model.video`，无字幕语音申请 `model.asr`。
+  ASR 是专用能力，不冒充聊天模型；可用性由宿主逐项报告。
+  本候选 Step adapter 的 ASR 路径为同地区/渠道的 `stepaudio-2.5-asr`。
+- 媒体单次上限 23 MiB；通用视频输入仅支持 MP4/WebM，音频转换为 WAV。
+  不支持的能力明确报错，不自动换模型、账户或渠道。
+- MCP 取消传到宿主等待确认和进行中的请求；取消不能撤销已发生的提供商计费。
+
+跟随模式**不读取独立设置快照或旧 provider.env**。
+如需 Cookie 文件、下载目录、FFmpeg 或 HTTP 代理，可在上述本体路径文件中显式增加：
+
+```json
+{
+  "schemaVersion": 3,
+  "runtimeDirectory": "D:/Tools/Bilibili-Video-Research",
+  "downloads": {
+    "cookies_file": "D:/Private/BVR/cookies.txt",
+    "download_directory": "D:/Temporary/BVR",
+    "http_proxy": "http://127.0.0.1:7897",
+    "prefer_captions": true
+  }
+}
+```
+
+仅配置实际需要的字段。可选 `ffmpeg_path` 必须是可执行文件绝对路径。
+下载代理只用于下载链路，不承诺宿主模型请求也走它。
+旧 envFile 中的下载选项不会自动迁移，需要用户明确核对并填写。
+
+### 独立配置
+
+配置页使用公开的 `dfsc.settings.json` / `json-file-v1` 协议，
+与宿主模式 snapshot 绑定到同一已提交配置修订，不再由 BVR 专用表单或 CLI 写 Key。
+
+- 主力模型：显式选择 StepFun/Gemini，填写自己的 Key 和模型名。
+  StepFun 必须另填四种阶跃官方 API/Plan 根地址之一；Gemini 不使用 Step 地址。
+- Step ASR：地址、Key、模型三项同时填写，绝不借用主力连接。
+  三项全空时，Step 无字幕语音不可用；字幕或视频路径不受影响。
+  Gemini 主力加独立 Step ASR 目前不支持，会明确报错。
+- 下载设置属于此独立配置快照，不读取跟随模式的 downloads 或宿主账户。
+- Key 使用受限秘密字段保存，不回显；保留、替换和删除由 DFSC 明确提交。
+  旧私密文件保留在原处，不自动导入、覆盖或认领。
+- DFSC 聊天切换账户不会让 BVR 变成跟随模式。
+  独立配置改变后，旧进程会在下一次请求前拒绝继续使用旧 Key；
+  ASR 与总结之间也重新检查。
+
+模式失败、提供商失败或授权拒绝均不在两种模式之间自动回退。
 
 ## 使用、停用和更新
 
-示例：`/bvr <公开视频链接> 总结讲述内容，并区分证据与推断`。
-也可以直接要求 Agent 使用 BVR 分析链接；技能不保证在每个任务中自动触发。
-本插件的 MCP 标识为 `bilibili-video-research__bvr`。
+使用 `/bvr <公开视频链接> 研究问题`，或要求 Agent 调用 BVR。
+MCP 标识仍为 `bilibili-video-research__bvr`，工具、技能和命令名称不变。
+视频、音频、字幕及公开上下文可能发送给显式选择的提供商，消耗对应额度。
+Cookie 仅使用用户授权的文件，不绕过付费、私密或登录权限。
 
-停用 MCP 可在插件列表直接使用服务开关，也可在 MCP 管理页操作。
-服务开关不单独卸载技能或命令。卸载插件会移除技能、命令和 MCP 声明；
-按提示重新加载会话。它不会卸载外部 BVR、删除私密配置或停止其他客户端的 BVR。
-若需彻底清理，由用户单独删除自己创建的 `bvr/config.json` 和私密文件。
+MCP 开关只控制服务，不单独卸载技能或命令。卸载插件不会删除外部本体、
+旧私密文件或运行环境设置。删除数据和重启日常应用须由用户单独确认。
 
-更新市场不等于升级已安装的插件。本版本遵循 DFSC 当前的卸载后重装流程。
-BVR 本体在自己的目录中更新；更新后重新执行本地检查并验证兼容性。
+本次包含协议/schema 变化，**不是可直接复用旧配置的一键升级承诺**。
+宿主候选、BVR 本体、安装资源和旧安装迁移需组合验收后再固定 SHA 投稿市场。
+正式上架后，检查市场和更新已安装副本仍是两件事。
+旧宿主不得静默安装本候选后退回专用账户桥。
 
-## 投稿
+## 作者与验收
 
-在 BVR 仓库中审核并提交本资源目录后，向 `dfsc-community-plugins` 提收录 PR：
-来源路径为 `plugins/bilibili-video-research`，锁定完整的上游提交 SHA。
-市场维护者同步资源副本、记录哈希并运行市场校验和安装验收。
-不要把 `node_modules`、私密环境文件、Cookie、日志或用户会话一起收录。
-收录来源应包含本目录许可证；`0.1.1` 的插件图标采用维护者提供的插画，
-替换旧版 Bilibili 标识，并将画面外侧白边处理为透明；不改变 MCP 或配置协议，
-不表示 Bilibili、StepFun 或 DFSC 官方背书。
+本资源直接维护在 BVR 原仓库，不要求另建 DFSC 专用仓库。
+原生资源是 `step.plugin.json`，展示信息是 `dfsc.plugin.json`，
+独立配置是 `dfsc.settings.json`，宿主能力是 `dfsc.host.json`。
+`server/host-client/UPSTREAM.md` 记录标准客户端来源、固定提交及 MIT 许可。
+
+运行候选互操作验收：
+
+```powershell
+npm run verify:dfsc-host -- --desktop-root "D:/Desktop For Step Code"
+```
+
+该命令需要通用 host v1 候选源码，运行真实 BVR MCP、FFmpeg、通用 broker 和
+Step adapter，但提供商、账户和确认回调均为隔离 fixture。
+它不证明生产原生 launcher、Electron 界面、真实账户权益或安装升级已验收。
+不能把本地模拟结果写成正式上线或真实扣费验证。
+
+另有组合源码 Electron 验收，需要该 DFSC 候选已完成生产构建、暂存 runtime，
+且安装有其锁定版本的 Electron 和 Playwright；不会给 BVR 增加这些运行依赖：
+
+```powershell
+npm run verify:dfsc-electron -- --desktop-root "D:/Desktop For Step Code" --output "D:/DFSC-QA/new-bvr-native-run"
+```
+
+输出目录必须尚不存在。此验收通过正式插件管理 IPC 安装未改写声明的 BVR，
+再经过实际原生 launcher、MCP、FFmpeg 和授权界面；不替换 broker 的来源校验
+或用户确认逻辑。仅把提供商传输改接到本机隔离响应，以触发真实工具链。
+覆盖拒绝不重弹、授权复用、提供商失败、请求取消、账号更换后重新授权，
+以及无宿主账号的独立启动和配置变化后的旧进程阻断。自动关闭其测试窗口并
+删除隔离配置，只留下截图和不含凭据的验证摘要，不接触日常应用或快捷方式。
+
+该源码验收不等于安装包、旧安装升级、真实 OAuth/Plan 权益、原生 macOS
+或实际 Bilibili 无字幕 ASR 全链路验收；这些仍是后续独立门槛。
+
+插件同系统用户运行，不是恶意本地代码沙箱。
+不要共享启动上下文、本地 bearer、Key、Cookie、用户日志或会话。
+原插画图标保留，不表示 Bilibili、StepFun 或 DFSC 官方背书。
