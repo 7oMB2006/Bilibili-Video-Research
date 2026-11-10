@@ -30,6 +30,7 @@ const profile = join(output, "profile", "step-runtime");
 const agentDir = join(profile, "agent");
 const marketplace = options["--marketplace"] ?? join(output, "bvr-local-preview");
 const marketplaceName = options["--marketplace-name"] ?? "bvr-local-preview";
+const resourceRoot = options["--marketplace"] ? join(marketplace, "plugins", "bilibili-video-research") : pluginRoot;
 await mkdir(agentDir, { recursive: true });
 if (!options["--marketplace"]) {
   await mkdir(join(marketplace, ".step-plugin"), { recursive: true });
@@ -80,11 +81,10 @@ async function verifyPresentation(entry) {
   for (const language of ["zh", "en"]) {
     const path = entry.package.locales[language].documentation.readme;
     const document = await library.document({ ref: entry.package.ref, path });
-    assert.equal(document.text, await readFile(join(pluginRoot, path), "utf8"));
+    assert.equal(document.text, await readFile(join(resourceRoot, path), "utf8"));
     assert.equal(document.links["../README.md"], "README.md");
     const technicalGuide = await library.document({ ref: entry.package.ref, path: "README.md" });
-    const root = options["--marketplace"] ? join(marketplace, "plugins", "bilibili-video-research") : pluginRoot;
-    assert.equal(technicalGuide.text, await readFile(join(root, "README.md"), "utf8"));
+    assert.equal(technicalGuide.text, await readFile(join(resourceRoot, "README.md"), "utf8"));
   }
 }
 await manager.mutate({ action: "marketplace-add", source: marketplace }, AbortSignal.timeout(30_000));
