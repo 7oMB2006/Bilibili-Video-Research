@@ -71,6 +71,7 @@ async function verifyPresentation(entry) {
   assert.deepEqual(entry.package.warnings, []);
   assert.deepEqual(entry.package.categories, expectedPresentation.categories);
   assert.deepEqual(entry.package.keywords, expectedPresentation.keywords);
+  assert.deepEqual(entry.package.requirements, expectedPresentation.requirements);
   assert.deepEqual(entry.package.locales, expectedPresentation.locales);
   assert.equal(entry.package.tutorials[0].url, expectedPresentation.tutorials[0].url);
   assert.deepEqual(entry.package.links, expectedPresentation.links);
@@ -89,7 +90,7 @@ let catalog = await library.project(await manager.catalog());
 const available = catalog.available.find(item => item.name === "bilibili-video-research" && item.marketplace === marketplaceName);
 assert.ok(available);
 await verifyPresentation(available);
-check("Native discovery projects real categories, keywords, bilingual docs, tutorial and link cards");
+check("Native discovery projects categories, declared host/external requirements, bilingual docs and link cards");
 await manager.mutate({ action: "plugin-install", name: "bilibili-video-research", marketplace: marketplaceName },
   AbortSignal.timeout(30_000));
 catalog = await library.project(await manager.catalog());
@@ -101,7 +102,7 @@ await verifyPresentation(plugin);
 assert.equal(plugin.icon?.kind, "png");
 assert.ok(catalog.mcp.some(item => item.name === "bilibili-video-research__bvr" && item.source === "plugin"));
 assert.ok(catalog.skills.some(item => item.name === "bilibili-video-research" && item.source === "plugin"));
-check("Native install preserves marketplace provenance, presentation, PNG icon, skill and MCP declaration");
+check("Native install preserves marketplace provenance, declared requirements, PNG icon, skill and MCP declaration");
 const resources = await upstream.discoverStepPluginResourcePaths({ userDir: join(profile, "plugins"), projectTrusted: false });
 assert.deepEqual(resources.warnings, []);
 const loader = new upstream.DefaultResourceLoader({

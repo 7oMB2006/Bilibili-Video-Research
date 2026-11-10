@@ -8,6 +8,29 @@ audio or video frames to produce evidence traceable to the original video.
 This page describes the unpublished `0.2.0` generic-host candidate.
 Legacy hosts and the BVR-specific account bridge are not compatible.
 
+### Before Installing
+
+- **DFSC `0.6.0`** must also provide generic host v1, independent configuration
+  snapshots and launch authorization. The verified Windows combination used
+  main `dcab32806645502250ba1c8efd56e153e95d657b`. An older build with the same
+  version, or an unverified platform, is not covered merely by matching versions.
+- **Node.js 24+ and the BVR runtime** must be prepared separately in the same
+  environment. Put Node.js on PATH, update to a runtime with
+  `dfscHostApiVersion: 1`, install its dependencies and register its path.
+  FFmpeg and yt-dlp are normally supplied by those npm dependencies, not separate
+  manual installations.
+- **Model access and quota** are required. Follow mode needs an available
+  session account and explicit confirmation; independent mode uses your own
+  main connection and, when needed, a separate ASR connection. Calls may incur costs.
+- **Optional cookies** are only needed when anonymous access is insufficient.
+  Use only a local file that you explicitly authorize.
+
+Marketplace requirements are author declarations, not local detection,
+runtime installation or account authorization. They come from
+`dfsc.plugin.json`, not automatic extraction of this guide.
+
+### Steps
+
 1. Explicitly update the separate BVR runtime and its dependencies. Plugin installation
    does not install the runtime or Node.js.
 2. Register and check the runtime path using the [technical guide](../README.md),

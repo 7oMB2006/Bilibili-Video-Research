@@ -98,6 +98,48 @@ test("DFSC presentation declares reviewed classification, bilingual docs and saf
   for (const link of presentation.links) assert.deepEqual(Object.keys(link).sort(), ["title", "url"]);
 });
 
+test("DFSC requirements declare the verified host and actual external preparation", async () => {
+  const presentation = JSON.parse(await readFile(join(pluginRoot, "dfsc.plugin.json"), "utf8"));
+  const runtime = JSON.parse(await readFile(join(repository, "package.json"), "utf8"));
+  const requirements = presentation.requirements;
+  assert.ok(requirements, "Declare requirements in metadata, not only in the README");
+  assert.deepEqual(Object.keys(requirements).sort(), ["dfsc", "external"]);
+  assert.equal(requirements.dfsc, "0.6.0", "Do not claim unverified future host versions");
+  assert.equal(runtime.engines.node, ">=24");
+  assert.equal(runtime.dfscHostApiVersion, 1);
+  assert.deepEqual(requirements.external.map(item => [item.name, item.optional]), [
+    ["Node.js 24+", false],
+    ["BVR 本体与依赖", false],
+    ["模型访问与额度", false],
+    ["Bilibili Cookie（按需）", true],
+  ]);
+  for (const item of requirements.external) {
+    assert.deepEqual(Object.keys(item).sort(), ["description", "name", "optional", "url"]);
+    assert.ok(item.name.length > 0 && item.name.length <= 160);
+    assert.ok(item.description.length > 0 && item.description.length <= 512);
+    assert.doesNotMatch(item.name + item.description, /[\u0000-\u001f]/);
+    assert.ok(item.url.length <= 2048);
+    const url = new URL(item.url);
+    assert.equal(url.href, item.url, "Use canonical URLs so native projection preserves the declaration");
+    assert.equal(url.protocol, "https:");
+    assert.equal(url.username, "");
+    assert.equal(url.password, "");
+  }
+  const bvr = requirements.external[1];
+  assert.match(bvr.description, /dfscHostApiVersion: 1/);
+  assert.match(bvr.description, /npm ci/);
+  assert.match(bvr.description, /FFmpeg.*yt-dlp/);
+  assert.match(requirements.external[2].description, /ASR/);
+  assert.match(requirements.external[3].description, /不绕过/);
+  for (const path of ["README.md", "docs/DFSC.md", "docs/DFSC.en.md"]) {
+    const guide = await readFile(join(pluginRoot, path), "utf8");
+    assert.ok(guide.includes(requirements.dfsc), "Keep the declared host version visible in both guides");
+    assert.ok(guide.includes("dcab32806645502250ba1c8efd56e153e95d657b"),
+      "Identify the tested build instead of treating matching versions as feature detection");
+    assert.ok(guide.includes("FFmpeg") && guide.includes("yt-dlp"));
+  }
+});
+
 test("the three supported provider routes must be selected explicitly", () => {
   assert.deepEqual(validateProvider(api), { provider: "stepfun", channel: "api" });
   assert.deepEqual(validateProvider({ ...api, STEPFUN_BASE_URL: "https://api.stepfun.com/step_plan/v1/" }),

@@ -5,6 +5,35 @@
   "authors": [{ "name": "Bilibili Video Research contributors" }],
   "maintainers": [{ "name": "7oMB2006" }],
   "license": "MIT",
+  "requirements": {
+    "dfsc": "0.6.0",
+    "external": [
+      {
+        "name": "Node.js 24+",
+        "description": "需在运行 DFSC 的同一环境中提供 Node.js 24 或更新版本，并加入 PATH；插件不会自动安装运行时。",
+        "url": "https://nodejs.org/",
+        "optional": false
+      },
+      {
+        "name": "BVR 本体与依赖",
+        "description": "另行准备带 dfscHostApiVersion: 1 标记的 BVR 本体，执行 npm ci（含开发依赖）并登记路径。FFmpeg 和 yt-dlp 通常由依赖提供；插件更新不会自动更新本体。",
+        "url": "https://github.com/7oMB2006/Bilibili-Video-Research/blob/main/plugins/bilibili-video-research/README.md",
+        "optional": false
+      },
+      {
+        "name": "模型访问与额度",
+        "description": "跟随模式需可用的 DFSC Step 账户并逐项确认；独立模式自备主力连接，按需单独配置 ASR。模型调用可能消耗余额或套餐额度，不因安装而获得授权。",
+        "url": "https://github.com/7oMB2006/Bilibili-Video-Research/blob/main/plugins/bilibili-video-research/docs/DFSC.md#%E6%A8%A1%E5%9E%8B%E4%B8%8E%E8%B4%B9%E7%94%A8",
+        "optional": false
+      },
+      {
+        "name": "Bilibili Cookie（按需）",
+        "description": "仅在匿名访问失败或需要登录画质时，提供自己授权的本地 Cookie 文件。普通公开视频不强制要求；不绕过付费、私密或其他访问权限。",
+        "url": "https://github.com/7oMB2006/Bilibili-Video-Research/blob/main/README.zh-CN.md#%E5%8F%AF%E9%80%89%E7%9A%84-bilibili-%E7%99%BB%E5%BD%95%E6%80%81%E9%85%8D%E7%BD%AE",
+        "optional": true
+      }
+    ]
+  },
   "documentation": { "readme": "docs/DFSC.md" },
   "locales": {
     "zh": {

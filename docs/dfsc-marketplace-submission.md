@@ -7,6 +7,35 @@ The BVR runtime and dependencies remain a separately prepared installation.
 Not installing dependencies automatically does not mean dependencies are banned:
 BVR uses the official MCP SDK, and its author lockfile remains authoritative.
 
+## Marketplace Requirements
+
+The source `dfsc.plugin.json` now declares `requirements.dfsc: "0.6.0"`.
+The accepted Windows generic-host combination used DFSC main
+`dcab32806645502250ba1c8efd56e153e95d657b`; the version alone is not feature
+detection. Older builds with the same number may lack generic host v1,
+independent configuration snapshots or launch authorization. Future versions,
+native macOS plugin combinations, real billing, native ASR and old-install
+upgrades are not added to the verified scope by this metadata change.
+
+`requirements.external` lists Node.js 24+, the separate BVR runtime and its
+dependencies, model access/quota, and optional Bilibili cookies. The runtime
+must carry `dfscHostApiVersion: 1` and have `npm ci` completed, including
+development dependencies. FFmpeg and yt-dlp normally come from those npm
+dependencies; they are not additional mandatory manual installations.
+Each item has a description, a credential-free HTTPS preparation link and an
+explicit required/optional flag.
+
+These fields are author declarations, not installation probes, automatic
+dependency installation or model authorization. They do not replace the
+launcher checks, per-call confirmation or independent configuration.
+The Chinese and English user guides and the technical README describe the
+same preparation and compatibility boundaries.
+
+Maintain these fields in this source repository, then pin and synchronize the
+reviewed commit into the market. Do not patch a generated market copy or
+duplicate requirements in `registry.json`. The resource remains unpublished
+`0.2.0`; the root runtime package version is a separate identifier.
+
 ## Verify the Candidate
 
 ```sh
@@ -32,8 +61,8 @@ callback that accepts the fixture consumer is not production provenance proof.
 
 The original `verify-dfsc-host.mjs` shared BVR bridge verifier has been retired.
 The new plugin does not read `bvr/host.json` or send a self-reported runtime PID.
-Its public client/reader are pinned to DFSC candidate
-`fead9918e03618d1a25e1ee45a609c833512db74`; see the bundled provenance and MIT
+Its public client/reader are pinned to DFSC
+`0a03b3f80b497cad3d55531171ace8c7cb381bb3`; see the bundled provenance and MIT
 license in `server/host-client/`.
 
 Native resource discovery, install, documentation and remove/reinstall can be
@@ -89,8 +118,9 @@ compatibility with this new declaration, configuration schema or authorization.
 - The new `dfsc.host.json` and independent settings schema change the upgrade
   contract. Do not promise a one-click old-install migration before the host
   compatibility checks and migration workflow have been accepted.
-- The related host PRs are still candidates. Source CI does not make this
-  usable in the currently installed daily application.
+- The related host PRs #215, #216, #217, #218 and #220 are merged into DFSC
+  main. Their merge and the accepted Windows combination do not automatically
+  update an owner's daily application or prove other builds compatible.
 - Do not publish the market update or replace a daily installation as part of
   source development or isolated fixture tests.
 
