@@ -71,6 +71,11 @@ test("DFSC presentation declares reviewed classification, bilingual docs and saf
   assert.equal(presentation.schemaVersion, 1);
   assert.deepEqual(presentation.categories, ["research", "audio-video"]);
   assert.deepEqual(presentation.keywords, ["视频研究", "字幕", "语音转写"]);
+  assert.deepEqual(presentation.authors, [{ name: "7oMB2006" }]);
+  assert.deepEqual(presentation.maintainers, [{ name: "7oMB2006" }]);
+  for (const path of [join(repository, "LICENSE"), join(pluginRoot, "LICENSE")]) {
+    assert.match(await readFile(path, "utf8"), /Copyright \(c\) 2026 7oMB2006/);
+  }
   assert.equal(presentation.stars, undefined, "Stars must come from live repository metadata, not author claims");
   assert.deepEqual(Object.keys(presentation.locales).sort(), ["en", "zh"]);
   const documents = new Set([presentation.documentation.readme]);
