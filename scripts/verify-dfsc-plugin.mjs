@@ -69,6 +69,8 @@ async function verifyPresentation(entry) {
   assert.equal(entry.repository, "https://github.com/7oMB2006/Bilibili-Video-Research");
   assert.equal(entry.package.provenance, "recorded");
   assert.deepEqual(entry.package.warnings, []);
+  assert.equal(entry.package.author, expectedPresentation.authors.map(item => item.name).join(", "));
+  assert.equal(entry.package.maintainer, expectedPresentation.maintainers.map(item => item.name).join(", "));
   assert.deepEqual(entry.package.categories, expectedPresentation.categories);
   assert.deepEqual(entry.package.keywords, expectedPresentation.keywords);
   assert.deepEqual(entry.package.requirements, expectedPresentation.requirements);
@@ -90,7 +92,7 @@ let catalog = await library.project(await manager.catalog());
 const available = catalog.available.find(item => item.name === "bilibili-video-research" && item.marketplace === marketplaceName);
 assert.ok(available);
 await verifyPresentation(available);
-check("Native discovery projects categories, declared host/external requirements, bilingual docs and link cards");
+check("Native discovery projects declared authors, maintainers, categories, host/external requirements, bilingual docs and link cards");
 await manager.mutate({ action: "plugin-install", name: "bilibili-video-research", marketplace: marketplaceName },
   AbortSignal.timeout(30_000));
 catalog = await library.project(await manager.catalog());
@@ -102,7 +104,7 @@ await verifyPresentation(plugin);
 assert.equal(plugin.icon?.kind, "png");
 assert.ok(catalog.mcp.some(item => item.name === "bilibili-video-research__bvr" && item.source === "plugin"));
 assert.ok(catalog.skills.some(item => item.name === "bilibili-video-research" && item.source === "plugin"));
-check("Native install preserves marketplace provenance, declared requirements, PNG icon, skill and MCP declaration");
+check("Native install preserves marketplace provenance, declared authors, maintainers, requirements, PNG icon, skill and MCP declaration");
 const resources = await upstream.discoverStepPluginResourcePaths({ userDir: join(profile, "plugins"), projectTrusted: false });
 assert.deepEqual(resources.warnings, []);
 const loader = new upstream.DefaultResourceLoader({

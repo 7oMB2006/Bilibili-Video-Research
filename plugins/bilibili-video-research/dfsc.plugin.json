@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "categories": ["research", "audio-video"],
   "keywords": ["视频研究", "字幕", "语音转写"],
-  "authors": [{ "name": "Bilibili Video Research contributors" }],
+  "authors": [{ "name": "7oMB2006" }],
   "maintainers": [{ "name": "7oMB2006" }],
   "license": "MIT",
   "requirements": {
