@@ -14,11 +14,13 @@ async function boundedText(path: string, limit: number): Promise<string> {
   return data.toString("utf8");
 }
 
-export async function assertDfscConfigurationCurrent(): Promise<void> {
+export async function assertDfscConfigurationCurrent(expectedIndependentRevision?: string): Promise<void> {
   const setupPath = process.env.BVR_DFSC_SETUP_PATH;
   const setupRevision = process.env.BVR_DFSC_SETUP_REVISION;
   const packageDirectory = process.env.BVR_DFSC_PLUGIN_DIRECTORY;
   const configurationRevision = process.env.BVR_DFSC_CONFIGURATION_REVISION;
+  if (expectedIndependentRevision !== undefined && (!packageDirectory || configurationRevision !== expectedIndependentRevision))
+    throw new Error("BVR configuration changed or is unavailable. Restart the session before another model request; no provider fallback is used.");
   if (setupPath !== undefined || setupRevision !== undefined || packageDirectory !== undefined || configurationRevision !== undefined) {
     try {
       if (!setupPath || !isAbsolute(setupPath) || !/^[a-f0-9]{64}$/.test(setupRevision ?? "")

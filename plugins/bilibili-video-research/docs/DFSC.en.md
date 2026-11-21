@@ -5,23 +5,22 @@ audio or video frames to produce evidence traceable to the original video.
 
 ## Get Started
 
-This page describes the unpublished `0.2.0` generic-host candidate.
+This page describes the unpublished `0.2.1` generic-host candidate.
 Legacy hosts and the BVR-specific account bridge are not compatible.
 
 ### Before Installing
 
-- **DFSC `0.6.0`** must also provide generic host v1, independent configuration
-  snapshots and launch authorization. The verified Windows combination used
-  main `dcab32806645502250ba1c8efd56e153e95d657b`. An older build with the same
-  version, or an unverified platform, is not covered merely by matching versions.
+- **A compatible DFSC build** must provide generic host v1, launch authorization
+  and per-capability routing. The candidate declares `0.6.0`, but previous Windows
+  verification at `dcab32806645502250ba1c8efd56e153e95d657b` does not cover this routing.
 - **Node.js 24+ and the BVR runtime** must be prepared separately in the same
   environment. Put Node.js on PATH, update to a runtime with
-  `dfscHostApiVersion: 1`, install its dependencies and register its path.
+  `dfscHostApiVersion: 1` and `dfscCapabilityRoutingVersion: 1`, install its dependencies and register its path.
   FFmpeg and yt-dlp are normally supplied by those npm dependencies, not separate
   manual installations.
-- **Model access and quota** are required. Follow mode needs an available
-  session account and explicit confirmation; independent mode uses your own
-  main connection and, when needed, a separate ASR connection. Calls may incur costs.
+- **Model access and quota** are required. DFSC quota needs a connected Step
+  account and per-capability confirmation. Independent calls use your own connection
+  settings. Calls may incur costs.
 - **Optional cookies** are only needed when anonymous access is insufficient.
   Use only a local file that you explicitly authorize.
 
@@ -35,8 +34,7 @@ runtime installation or account authorization. They come from
    does not install the runtime or Node.js.
 2. Register and check the runtime path using the [technical guide](../README.md),
    then open the plugin's configuration gear.
-3. Choose Follow DFSC, or configure independent main-model and ASR connections,
-   then save.
+3. Enable the sources you need, assign a source to text, video or ASR, then save.
 4. Enable the MCP service and manually restart the idle session that needs it.
 5. Check the active connection in Capabilities before submitting your question.
 
@@ -55,17 +53,16 @@ https://www.bilibili.com/video/BV1dPeP6REwM/
 
 ## Models and Cost
 
-Follow mode uses the effective account, region, channel and compatible model of
-the calling DFSC session. The first model request requires explicit in-session
-confirmation. A failed Plan request never silently falls back to direct API
-billing. Audio transcription uses a dedicated ASR capability; a chat model is
-not automatically an audio-transcription model.
+DFSC quota uses the account, channel and model selected for the plugin, not
+the chat model. The first use of each capability on that account requires
+in-session confirmation. A failed request never switches sources.
+Audio transcription uses a dedicated ASR capability.
 
-In independent mode, the main model and ASR have separate endpoint, key and
-model fields. Switching the DFSC chat account does not change those independent
-connections.
-Step ASR requires all three separate fields; empty ASR settings never borrow
-the main key. Existing keys and authorization are not automatically migrated.
+For example, text and video can use Step Plan while ASR uses an independent
+connection. In that case fill in the ASR endpoint, key and model; leave the
+independent main-model fields blank. Unassigned capabilities are unavailable,
+and ASR never borrows the main key. Existing keys and authorization are not
+automatically migrated.
 Model requests may consume credits or balance. The local
 environment check does not verify live account access or billing. Cancellation
 cannot reverse costs of requests already accepted by a provider.

@@ -79,6 +79,7 @@ export function createHostClient({ pluginId, consumer, environment = process.env
   return Object.freeze({
     mode: launch.mode, dataDirectory: launch.dataDirectory,
     configurationRevision: launch.configurationRevision,
+    ...(launch.independentCapabilities ? { independentCapabilities: Object.freeze([...launch.independentCapabilities]) } : {}),
     async context(options = {}) {
       return parseContext(await call('context', {}, 10000, options.signal), launch.capabilities);
     },

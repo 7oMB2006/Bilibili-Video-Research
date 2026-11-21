@@ -43,20 +43,21 @@ export function isolatedEnvironment(parent, configured) {
   return environment;
 }
 
+const stepEndpoints = new Set(["https://api.stepfun.com/v1", "https://api.stepfun.com/step_plan/v1",
+  "https://api.stepfun.ai/v1", "https://api.stepfun.ai/step_plan/v1"]);
+export const isStepEndpoint = value => stepEndpoints.has(value?.trim().replace(/\/+$/, ""));
+
 export function validateProvider(configured) {
   const provider = configured.CODEX_VIDEO_PROVIDER?.trim().toLowerCase();
   if (provider === "stepfun") {
     if (!configured.STEPFUN_API_KEY?.trim())
       throw new SetupError("Set STEPFUN_API_KEY in the private BVR environment file.");
     const endpoint = configured.STEPFUN_BASE_URL?.trim().replace(/\/+$/, "");
-    if (!["https://api.stepfun.com/v1", "https://api.stepfun.com/step_plan/v1",
-      "https://api.stepfun.ai/v1", "https://api.stepfun.ai/step_plan/v1"].includes(endpoint))
+    if (!isStepEndpoint(endpoint))
       throw new SetupError("Set an explicit official STEPFUN_BASE_URL: API /v1 or Plan /step_plan/v1. No default or fallback is used.");
     if (configured.STEPFUN_ASR_BASE_URL !== undefined || configured.STEPFUN_ASR_API_KEY !== undefined) {
       if (!configured.STEPFUN_ASR_API_KEY?.trim()
-        || !["https://api.stepfun.com/v1", "https://api.stepfun.com/step_plan/v1",
-          "https://api.stepfun.ai/v1", "https://api.stepfun.ai/step_plan/v1"]
-          .includes(configured.STEPFUN_ASR_BASE_URL?.trim().replace(/\/+$/, "")))
+        || !isStepEndpoint(configured.STEPFUN_ASR_BASE_URL))
         throw new SetupError("Separate ASR requires an explicit official STEPFUN_ASR_BASE_URL and STEPFUN_ASR_API_KEY. No fallback is used.");
     }
     return { provider, channel: endpoint.endsWith("/step_plan/v1") ? "plan" : "api" };

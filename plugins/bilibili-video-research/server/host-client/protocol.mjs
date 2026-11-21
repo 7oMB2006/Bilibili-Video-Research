@@ -2,10 +2,10 @@ import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 
 export const HOST_ENV = 'DFSC_LAUNCH_CONTEXT';
-export const CAPABILITIES = Object.freeze(['model.text', 'model.video', 'model.asr', 'model.tts']);
+export const CAPABILITIES = Object.freeze(['model.text', 'model.video', 'model.asr', 'model.tts', 'model.image']);
 export const LIMITS = Object.freeze({
   manifest: 65536, launch: 16384, request: 32 * 1024 * 1024,
-  text: 2 * 1024 * 1024, response: 24 * 1024 * 1024, audio: 16 * 1024 * 1024,
+  text: 2 * 1024 * 1024, response: 24 * 1024 * 1024, audio: 16 * 1024 * 1024, image: 10 * 1024 * 1024,
   lease: 30 * 60 * 1000, provider: 180000, confirmation: 60000, queue: 30000,
   perPluginConcurrency: 2, globalConcurrency: 8,
 });
@@ -50,15 +50,22 @@ function capabilities(value) {
   if (!Array.isArray(value) || !value.length || value.length > CAPABILITIES.length
     || value.some(item => !CAPABILITIES.includes(item)) || new Set(value).size !== value.length) fail();
 }
+export function parseIndependentCapabilities(value, declared) {
+  capabilities(value);
+  if (value.some(item => !declared.includes(item))) fail();
+  return [...value];
+}
 export function parseHostDeclaration(value, manifest) {
   boundedJson(value, LIMITS.manifest);
-  keys(value, ['$schema', 'schemaVersion', 'hostApiVersion', 'consumer', 'capabilities'],
+  keys(value, ['$schema', 'schemaVersion', 'hostApiVersion', 'consumer', 'capabilities', 'independentCapabilities'],
     ['schemaVersion', 'hostApiVersion', 'consumer', 'capabilities']);
   if (value.schemaVersion !== 1 || value.hostApiVersion !== 1) fail('UNSUPPORTED_VERSION');
   if (value.$schema !== undefined && !text(value.$schema, 512)) fail();
   keys(value.consumer, ['kind', 'server']);
   if (value.consumer.kind !== 'mcp-stdio' || !id(value.consumer.server)) fail();
   capabilities(value.capabilities);
+  const independent = value.independentCapabilities === undefined ? undefined
+    : parseIndependentCapabilities(value.independentCapabilities, value.capabilities);
   const server = manifest?.mcpServers?.[value.consumer.server];
   if (!object(manifest?.mcpServers) || !object(server) || !text(server.command, 2048) || !server.command.trim()
     || server.url !== undefined || server.transport !== undefined && server.transport !== 'stdio'
@@ -70,13 +77,14 @@ export function parseHostDeclaration(value, manifest) {
     || server.env !== undefined && (!object(server.env) || Object.entries(server.env).some(([key, item]) =>
       /^DFSC_(?:HOST|LAUNCH)_/iu.test(key) || typeof item !== 'string' || item.includes('\0')))) fail();
   return Object.freeze({ schemaVersion: 1, hostApiVersion: 1,
-    consumer: Object.freeze({ ...value.consumer }), capabilities: Object.freeze([...value.capabilities]) });
+    consumer: Object.freeze({ ...value.consumer }), capabilities: Object.freeze([...value.capabilities]),
+    ...(independent ? { independentCapabilities: Object.freeze(independent) } : {}) });
 }
 export function parseLaunch(value, expected, now = Date.now()) {
   boundedJson(value, LIMITS.launch);
   keys(value, ['version', 'mode', 'pluginId', 'consumer', 'instance', 'fingerprint', 'declarationHash',
     'revision', 'configurationRevision', 'launchId', 'runtimeId', 'sessionId', 'accountRevision',
-    'capabilities', 'models', 'dataDirectory', 'broker'],
+    'capabilities', 'models', 'dataDirectory', 'broker', 'independentCapabilities'],
   ['version', 'mode', 'pluginId', 'consumer', 'instance', 'fingerprint', 'declarationHash',
     'revision', 'configurationRevision', 'launchId', 'runtimeId', 'sessionId', 'accountRevision',
     'capabilities', 'models', 'dataDirectory']);
@@ -88,10 +96,15 @@ export function parseLaunch(value, expected, now = Date.now()) {
     || value.pluginId !== expected.pluginId || value.consumer !== expected.consumer) fail();
   capabilities(value.capabilities);
   parseModelSelection(value.models, value.capabilities);
+  const independent = value.independentCapabilities === undefined ? undefined
+    : parseIndependentCapabilities(value.independentCapabilities, CAPABILITIES);
+  if (independent && (!hash(value.configurationRevision)
+    || (value.mode === 'follow' ? independent.some(item => value.capabilities.includes(item))
+      : independent.length !== value.capabilities.length || independent.some(item => !value.capabilities.includes(item))))) fail();
   if (value.mode === 'independent') {
     if (!hash(value.configurationRevision) || value.broker !== undefined || Object.keys(value.models).length) fail();
   } else if (value.mode === 'follow') {
-    if (value.configurationRevision !== null) fail();
+    if (!independent && value.configurationRevision !== null) fail();
     keys(value.broker, ['origin', 'token', 'expiresAt']);
     const { origin, token, expiresAt } = value.broker;
     let url;
@@ -115,12 +128,14 @@ export function takeLaunchContext(environment, expected, now) {
   try { value = JSON.parse(raw); } catch { fail(); }
   return parseLaunch(value, expected, now);
 }
-function media(value, types) {
+function media(value, types, max = Infinity) {
   keys(value, ['mimeType', 'data']);
   if (!types.includes(value.mimeType) || typeof value.data !== 'string'
     || value.data.length % 4 !== 0 || !value.data.length) fail();
+  if (value.data.length > 4 * Math.ceil(max / 3)) fail('TOO_LARGE');
   // Canonical re-encoding checks the alphabet, padding and pad bits without a stack-growing regex.
   const bytes = Buffer.from(value.data, 'base64');
+  if (bytes.length > max) fail('TOO_LARGE');
   if (bytes.toString('base64') !== value.data) fail();
   return bytes;
 }
@@ -130,8 +145,10 @@ export function parseInvoke(value) {
   keys(value, ['requestId', 'revision', 'capability', 'input']);
   if (!uuid(value.requestId) || !hash(value.revision) || !CAPABILITIES.includes(value.capability)) fail();
   const input = value.input;
-  if (value.capability === 'model.text' || value.capability === 'model.video') {
-    keys(input, ['messages', 'video', 'temperature', 'maxTokens'], ['messages']);
+  if (value.capability === 'model.text' || value.capability === 'model.video' || value.capability === 'model.image') {
+    const attachment = value.capability === 'model.video' ? 'video' : value.capability === 'model.image' ? 'image' : undefined;
+    keys(input, ['messages', 'temperature', 'maxTokens', ...(attachment ? [attachment] : [])],
+      ['messages', ...(attachment ? [attachment] : [])]);
     if (!Array.isArray(input.messages) || !input.messages.length || input.messages.length > 64) fail();
     for (const message of input.messages) {
       keys(message, ['role', 'content']);
@@ -140,7 +157,10 @@ export function parseInvoke(value) {
     if (input.temperature !== undefined && (!Number.isFinite(input.temperature) || input.temperature < 0 || input.temperature > 2)
       || input.maxTokens !== undefined && (!Number.isSafeInteger(input.maxTokens) || input.maxTokens < 1 || input.maxTokens > 32768)) fail();
     if (value.capability === 'model.video') media(input.video, ['video/mp4', 'video/webm']);
-    else if (input.video !== undefined) fail();
+    if (value.capability === 'model.image') {
+      if (!input.messages.some(message => message.role === 'user')) fail();
+      media(input.image, ['image/jpeg', 'image/png', 'image/webp'], LIMITS.image);
+    }
   } else if (value.capability === 'model.asr') {
     keys(input, ['audio']);
     media(input.audio, ['audio/wav', 'audio/mpeg', 'audio/mp4', 'audio/webm']);

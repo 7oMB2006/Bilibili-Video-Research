@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
-import { isolatedEnvironment, prepareLaunch, SetupError, validateProvider } from "./config.mjs";
+import { isStepEndpoint, isolatedEnvironment, prepareLaunch, SetupError, validateProvider } from "./config.mjs";
 import { parseLaunch } from "./host-client/protocol.mjs";
 
 export const identity = Object.freeze({ pluginId: "bilibili-video-research", consumer: "bvr" });
@@ -31,30 +31,35 @@ export function downloadEnvironment(values = {}, strict = false) {
   return environment;
 }
 
-export function independentEnvironment(configuration) {
+export function independentEnvironment(configuration, routes) {
   const { values, secrets } = configuration;
   const text = key => typeof values[key] === "string" ? values[key].trim() : "";
   const key = secrets.api_key?.trim();
   const model = text("model");
-  if (!key || !model) throw new SetupError("Set the independent main API key and model in the plugin settings.");
+  const usesMain = !routes || routes.includes("model.text") || routes.includes("model.video");
   const provider = text("provider");
-  const environment = provider === "stepfun" ? {
-    CODEX_VIDEO_PROVIDER: "stepfun", STEPFUN_API_KEY: key,
-    STEPFUN_BASE_URL: text("base_url"), STEPFUN_VIDEO_MODEL: model,
-  } : provider === "gemini" ? {
-    CODEX_VIDEO_PROVIDER: "gemini", GEMINI_API_KEY: key, GEMINI_VIDEO_MODEL: model,
-  } : {};
-  validateProvider(environment);
+  const environment = {};
+  if (usesMain) {
+    if (!key || !model) throw new SetupError("Set the independent main API key and model in the plugin settings.");
+    Object.assign(environment, provider === "stepfun" ? {
+      CODEX_VIDEO_PROVIDER: "stepfun", STEPFUN_API_KEY: key,
+      STEPFUN_BASE_URL: text("base_url"), STEPFUN_VIDEO_MODEL: model,
+    } : provider === "gemini" ? {
+      CODEX_VIDEO_PROVIDER: "gemini", GEMINI_API_KEY: key, GEMINI_VIDEO_MODEL: model,
+    } : {});
+    validateProvider(environment);
+  }
   const asr = [text("asr_base_url"), secrets.asr_api_key?.trim(), text("asr_model")];
-  if (asr.some(Boolean) && !asr.every(Boolean))
+  const usesAsr = routes ? routes.includes("model.asr") : asr.some(Boolean);
+  if (usesAsr && !asr.every(Boolean))
     throw new SetupError("Set all three independent ASR fields, or clear all three. No main-connection fallback is used.");
-  if (provider === "gemini" && asr.some(Boolean))
+  if (!routes && provider === "gemini" && usesAsr)
     throw new SetupError("Separate Step ASR with a Gemini main model is not supported by this BVR adapter.");
-  if (asr.every(Boolean)) {
+  if (usesAsr) {
+    if (!isStepEndpoint(asr[0])) throw new SetupError("Set an explicit official ASR endpoint. No fallback is used.");
     environment.STEPFUN_ASR_BASE_URL = asr[0];
     environment.STEPFUN_ASR_API_KEY = asr[1];
     environment.STEPFUN_ASR_MODEL = asr[2];
-    validateProvider(environment);
   } else if (provider === "stepfun") {
     // Present but empty deliberately prevents the standalone legacy main-key ASR fallback.
     environment.STEPFUN_ASR_BASE_URL = "";
@@ -63,6 +68,8 @@ export function independentEnvironment(configuration) {
   Object.assign(environment, downloadEnvironment(values));
   return environment;
 }
+
+export const needsIndependentConfiguration = context => context.mode === "independent" || Boolean(context.independentCapabilities?.length);
 
 export async function prepareHostLaunch(setup, launch, parent = process.env, configuration) {
   const context = parseLaunch(launch, identity);
@@ -74,11 +81,13 @@ export async function prepareHostLaunch(setup, launch, parent = process.env, con
   try { manifest = JSON.parse(await readFile(join(prepared.runtimeDirectory, "package.json"), "utf8")); } catch {}
   if (manifest?.dfscHostApiVersion !== 1)
     throw new SetupError("Update the separate BVR runtime to the generic DFSC host v1 adapter before restarting.");
+  if (context.independentCapabilities && manifest.dfscCapabilityRoutingVersion !== 1)
+    throw new SetupError("Update the separate BVR runtime to support per-capability DFSC routing before restarting.");
   let configured = {};
-  if (context.mode === "independent") {
+  if (needsIndependentConfiguration(context)) {
     if (!configuration || configuration.revision !== context.configurationRevision)
       throw new SetupError("The independent configuration revision changed. Save the selected mode and restart.");
-    configured = independentEnvironment(configuration);
+    configured = independentEnvironment(configuration, context.independentCapabilities);
   } else {
     if (configuration !== undefined) throw new SetupError("Follow mode must not read independent configuration.");
     configured = downloadEnvironment(setup.downloads, true);
@@ -89,6 +98,7 @@ export async function prepareHostLaunch(setup, launch, parent = process.env, con
     DOTENV_CONFIG_OVERRIDE: "", DOTENV_CONFIG_QUIET: "true", DOTENV_CONFIG_DEBUG: "",
     DFSC_LAUNCH_CONTEXT: JSON.stringify(context),
   });
-  if (context.mode === "follow") environment.CODEX_VIDEO_PROVIDER = "stepfun";
-  return { ...prepared, environment, channel: context.mode === "follow" ? "follow-dfsc" : "independent" };
+  if (context.mode === "follow" && !environment.CODEX_VIDEO_PROVIDER) environment.CODEX_VIDEO_PROVIDER = "stepfun";
+  return { ...prepared, environment, channel: context.mode === "follow"
+    ? context.independentCapabilities ? "routed" : "follow-dfsc" : "independent" };
 }

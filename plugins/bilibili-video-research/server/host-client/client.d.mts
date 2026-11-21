@@ -4,6 +4,7 @@ export interface HostClient {
   readonly mode: 'follow' | 'independent';
   readonly dataDirectory: string;
   readonly configurationRevision: string | null;
+  readonly independentCapabilities?: readonly Capability[];
   context(options?: { signal?: AbortSignal }): Promise<HostContext>;
   invoke<C extends Capability>(input: Invocation<C>, options?: { signal?: AbortSignal }): Promise<Results[C]>;
   cancel(requestId: string): Promise<boolean>;

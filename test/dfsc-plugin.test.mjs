@@ -24,7 +24,8 @@ async function fixture(t) {
   t.after(() => rm(root, { recursive: true, force: true }));
   const runtime = join(root, "runtime with spaces");
   await mkdir(join(runtime, "src"), { recursive: true });
-  await writeFile(join(runtime, "package.json"), JSON.stringify({ name: "bilibili-video-research-mcp", type: "module", dfscHostApiVersion: 1 }));
+  await writeFile(join(runtime, "package.json"), JSON.stringify({ name: "bilibili-video-research-mcp", type: "module", dfscHostApiVersion: 1,
+    dfscCapabilityRoutingVersion: 1 }));
   await writeFile(join(runtime, "src", "index.ts"),
     `process.stdout.write(JSON.stringify({provider:process.env.CODEX_VIDEO_PROVIDER,key:process.env.STEPFUN_API_KEY,base:process.env.STEPFUN_BASE_URL,foreign:process.env.GEMINI_API_KEY,inject:process.env.NODE_OPTIONS,envFile:process.env.DOTENV_CONFIG_PATH,override:process.env.DOTENV_CONFIG_OVERRIDE,quiet:process.env.DOTENV_CONFIG_QUIET,configPath:process.env.BVR_DFSC_SETUP_PATH,revision:process.env.BVR_DFSC_SETUP_REVISION,mode:JSON.parse(process.env.DFSC_LAUNCH_CONTEXT).mode,legacyToken:process.env.BVR_DFSC_TOKEN,cwd:process.cwd()}));`);
   for (const dependency of ["tsx", "dotenv", "@modelcontextprotocol/sdk", "ffmpeg-static", "yt-dlp-exec"]) {
@@ -45,7 +46,7 @@ async function fixture(t) {
 test("DFSC manifest declares real resources and no install hook", async () => {
   const manifest = JSON.parse(await readFile(join(pluginRoot, "step.plugin.json"), "utf8"));
   assert.equal(manifest.id, "bilibili-video-research");
-  assert.equal(manifest.version, "0.2.0");
+  assert.equal(manifest.version, "0.2.1");
   assert.deepEqual(manifest.skills, ["skills"]);
   assert.deepEqual(manifest.commands, ["commands"]);
   assert.equal(manifest.entry, undefined);
@@ -112,6 +113,7 @@ test("DFSC requirements declare the verified host and actual external preparatio
   assert.equal(requirements.dfsc, "0.6.0", "Do not claim unverified future host versions");
   assert.equal(runtime.engines.node, ">=24");
   assert.equal(runtime.dfscHostApiVersion, 1);
+  assert.equal(runtime.dfscCapabilityRoutingVersion, 1);
   assert.deepEqual(requirements.external.map(item => [item.name, item.optional]), [
     ["Node.js 24+", false],
     ["BVR 本体与依赖", false],
@@ -132,6 +134,7 @@ test("DFSC requirements declare the verified host and actual external preparatio
   }
   const bvr = requirements.external[1];
   assert.match(bvr.description, /dfscHostApiVersion: 1/);
+  assert.match(bvr.description, /dfscCapabilityRoutingVersion: 1/);
   assert.match(bvr.description, /npm ci/);
   assert.match(bvr.description, /FFmpeg.*yt-dlp/);
   assert.match(requirements.external[2].description, /ASR/);
@@ -140,7 +143,9 @@ test("DFSC requirements declare the verified host and actual external preparatio
     const guide = await readFile(join(pluginRoot, path), "utf8");
     assert.ok(guide.includes(requirements.dfsc), "Keep the declared host version visible in both guides");
     assert.ok(guide.includes("dcab32806645502250ba1c8efd56e153e95d657b"),
-      "Identify the tested build instead of treating matching versions as feature detection");
+      "Keep the earlier verification tied to its exact build");
+    assert.ok(guide.includes("dfscCapabilityRoutingVersion: 1"),
+      "Identify the new runtime requirement instead of relying on matching versions");
     assert.ok(guide.includes("FFmpeg") && guide.includes("yt-dlp"));
   }
 });
