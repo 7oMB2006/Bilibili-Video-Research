@@ -1,12 +1,12 @@
 import { config } from "dotenv";
-import { followsDfsc, withDfscOperation } from "./dfsc.js";
+import { managedByDfsc, withDfscOperation } from "./dfsc.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { createSilentVideo, analyzeWithProvider, createSilentWindow, removeTemporaryWindow } from "./video-analysis.js";
 import { researchBilibiliVideo } from "./bilibili.js";
 
-if (!followsDfsc()) config({ quiet: true });
+if (!managedByDfsc()) config({ quiet: true });
 const server = new McpServer({ name: "bilibili-video-research-mcp", version: "0.1.0" });
 
 function result(text: string) {

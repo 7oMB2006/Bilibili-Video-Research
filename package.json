@@ -4,6 +4,7 @@
   "private": true,
   "dfscConfigurationVersion": 1,
   "dfscHostApiVersion": 1,
+  "dfscCapabilityRoutingVersion": 1,
   "type": "module",
   "description": "Evidence-aware Bilibili video research MCP for language, vision, and multimodal analysis.",
   "scripts": {

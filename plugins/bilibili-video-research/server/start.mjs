@@ -4,7 +4,7 @@ import { readFile, stat } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 import { defaultConfigPath, pluginRoot, prepareLaunch, readConfiguration, SetupError } from "./config.mjs";
 import { ConfigurationReader } from "./configuration.mjs";
-import { identity, prepareHostLaunch } from "./host-config.mjs";
+import { identity, needsIndependentConfiguration, prepareHostLaunch } from "./host-config.mjs";
 import { HostClientError, takeLaunchContext } from "./host-client/protocol.mjs";
 
 async function setupBytes() {
@@ -25,12 +25,13 @@ try {
       runtimeDirectory: setup.runtimeDirectory }, process.env, { validateOnly: true });
     const manifest = JSON.parse(await readFile(`${launch.runtimeDirectory}/package.json`, "utf8"));
     if (manifest.dfscHostApiVersion !== 1) throw new SetupError("Update the BVR runtime to the generic DFSC host v1 adapter.");
+    if (manifest.dfscCapabilityRoutingVersion !== 1) throw new SetupError("Update the BVR runtime to support per-capability DFSC routing.");
     process.stdout.write("BVR runtime configuration OK. Mode and authorization are selected in DFSC; no provider request was made.\n");
   } else {
     const context = takeLaunchContext(process.env, identity);
     const initialSetup = await setupBytes();
     const setup = JSON.parse(initialSetup.toString("utf8"));
-    const reader = context.mode === "independent" ? new ConfigurationReader(pathToFileURL(`${pluginRoot}/`)) : undefined;
+    const reader = needsIndependentConfiguration(context) ? new ConfigurationReader(pathToFileURL(`${pluginRoot}/`)) : undefined;
     const launch = await prepareHostLaunch(setup, context, process.env, await reader?.current());
     if (!(await setupBytes()).equals(initialSetup))
       throw new SetupError("BVR runtime setup changed during startup. Restart the session.");

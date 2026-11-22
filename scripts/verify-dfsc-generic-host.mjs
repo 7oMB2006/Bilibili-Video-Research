@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { EventEmitter, once } from "node:events";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -17,11 +17,12 @@ assert.equal(process.argv.length, 4);
 assert.ok(isAbsolute(process.argv[3]));
 const desktop = resolve(process.argv[3], "Desktop/electron");
 const [{ PluginHostBroker }, { StepPluginHostProvider }, { PluginHostBindingStore },
-  { PluginConfigurationStore }, files] = await Promise.all([
+  { PluginConfigurationStore }, { pluginHostAccount, withPluginHostAccount }, files] = await Promise.all([
   import(pathToFileURL(join(desktop, "plugin-host-broker.ts")).href),
   import(pathToFileURL(join(desktop, "plugin-host-step.ts")).href),
   import(pathToFileURL(join(desktop, "plugin-host-contract.mjs")).href),
   import(pathToFileURL(join(desktop, "plugin-configuration.mjs")).href),
+  import(pathToFileURL(join(desktop, "plugin-host-account.ts")).href),
   import(pathToFileURL(join(desktop, "plugin-files.mjs")).href),
 ]);
 const repository = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -43,7 +44,7 @@ try {
   const descriptor = { root: installed, kind: "installed", name: receipt.folder, id: receipt.id,
     fingerprint: receipt.fingerprint, instance: receipt.instance, provenance: "recorded", ref: "isolated" };
   const state = { approved: false, fail: false, hold: false,
-    auth: { step: { type: "oauth", access: "fixture-cn-key", profile: "step_plan", expires: Date.now() + 3600000 } } };
+    auth: withPluginHostAccount({ step: { type: "oauth", access: "fixture-cn-key", profile: "step_plan", expires: Date.now() + 3600000 } }) };
   const worker = { id: randomUUID(), status: "connected", state: { sessionId: randomUUID(),
     model: { provider: "step", id: "step-5-preview", input: ["text", "video"] } } };
   worker.rpc = { request: async () => worker.state };
@@ -55,7 +56,9 @@ try {
     calls.push(String(url));
     const body = JSON.parse(init.body);
     assert.equal(body.model, "step-5-preview");
-    assert.match(body.messages[0].content[0].video_url.url, /^data:video\/mp4;base64,/);
+    if (Array.isArray(body.messages[0].content))
+      assert.match(body.messages[0].content[0].video_url.url, /^data:video\/mp4;base64,/);
+    else assert.match(body.messages[0].content, /ASR TRANSCRIPT .*:\nisolated ASR text/);
     assert.equal(new Headers(init.headers).get("Authorization"), `Bearer ${state.auth.step.access}`);
     if (state.hold) return new Promise((_done, reject) => {
       init.signal.addEventListener("abort", () => reject(init.signal.reason), { once: true });
@@ -65,7 +68,9 @@ try {
       : Response.json({ choices: [{ message: { content: "isolated BVR visual result" } }] });
   });
   const selections = new PluginHostBindingStore(root), configurations = new PluginConfigurationStore(root);
-  let selection = await selections.select(descriptor, { revision: "unconfigured", mode: "follow" });
+  const models = { "model.video": "step-5-preview" };
+  const account = () => pluginHostAccount(state.auth).binding;
+  let selection = await selections.select(descriptor, { revision: "unconfigured", mode: "follow", account: account(), models });
   broker = new PluginHostBroker({ root, pool, provider, language: () => "zh",
     validateConsumer: async () => true });
   await broker.start();
@@ -86,7 +91,11 @@ try {
         STEPFUN_API_KEY: "wrong-inherited-key", GEMINI_API_KEY: "wrong-gemini-key",
       } });
     transport.stderr?.on("data", data => { stderr += data.toString(); });
-    await client.connect(transport);
+    const stderrStart = stderr.length;
+    try { await client.connect(transport); }
+    catch (error) {
+      throw new Error(`Fixture BVR did not start (${lastLaunch.mode}): ${stderr.slice(stderrStart).trim().slice(0, 300)}`, { cause: error });
+    }
     assert.equal((await client.listTools()).tools.length, 3);
   };
   const call = options => client.callTool({ name: "analyze_video", arguments: {
@@ -125,11 +134,12 @@ try {
   await rejected; await aborted;
   assert.equal(providerSignal.reason.code, "CANCELLED");
   assert.equal(calls.length, 4); state.hold = false;
-  state.auth.step = { ...state.auth.step, access: "fixture-oversea-key", profile: "platform_oversea" };
+  state.auth = withPluginHostAccount({ step: { ...state.auth.step, access: "fixture-oversea-key", profile: "platform_oversea" } });
   broker.invalidate();
   const stale = await call();
   assert.equal(stale.isError, true); assert.match(JSON.stringify(stale), /STALE_CONTEXT/);
   results.push(stale); assert.equal(calls.length, 4);
+  selection = await selections.select(descriptor, { revision: selection.revision, mode: "follow", account: account(), models });
   await connect();
   const renewed = await call();
   assert.notEqual(renewed.isError, true); results.push(renewed);
@@ -138,31 +148,87 @@ try {
   assert.equal(calls[4], "https://api.stepfun.ai/v1/chat/completions");
 
   const initial = await configurations.read(descriptor);
-  const config = await configurations.save(descriptor, { ref: descriptor.ref, revision: initial.revision,
+  const asrOnly = await configurations.save(descriptor, { ref: descriptor.ref, revision: initial.revision,
+    values: { provider: "stepfun", asr_base_url: "https://api.stepfun.com/v1", asr_model: "stepaudio-2.5-asr" },
+    secrets: { api_key: { action: "keep" }, asr_api_key: { action: "replace", value: "independent-asr-key" } } });
+  selection = await selections.select(descriptor, { revision: selection.revision, mode: "routed", account: account(),
+    models: { ...models, "model.text": "step-5-preview" },
+    independentCapabilities: ["model.asr"], configurationRevision: asrOnly.revision });
+  broker.invalidate();
+  await connect();
+  assert.deepEqual(new Set(lastLaunch.capabilities), new Set(["model.text", "model.video"]));
+  assert.deepEqual(lastLaunch.independentCapabilities, ["model.asr"]);
+  assert.equal(lastLaunch.configurationRevision, asrOnly.revision);
+  const mixed = await call();
+  assert.notEqual(mixed.isError, true); results.push(mixed);
+  assert.equal(calls.length, 6); assert.equal(confirmations, 4);
+
+  const { ConfigurationReader } = await import("../plugins/bilibili-video-research/server/configuration.mjs");
+  const { prepareHostLaunch } = await import("../plugins/bilibili-video-research/server/host-config.mjs");
+  const { analyzeMediaWithProvider } = await import("../src/video-analysis.ts");
+  const setupPath = join(root, "bvr/config.json"), setup = await readFile(setupPath);
+  const reader = new ConfigurationReader(pathToFileURL(`${installed}/`));
+  const prepared = await prepareHostLaunch(JSON.parse(setup.toString()), lastLaunch, {}, await reader.current());
+  const mixedEnvironment = { ...prepared.environment, BVR_DFSC_SETUP_PATH: setupPath,
+    BVR_DFSC_SETUP_REVISION: createHash("sha256").update(setup).digest("hex"),
+    BVR_DFSC_PLUGIN_DIRECTORY: installed, BVR_DFSC_CONFIGURATION_REVISION: asrOnly.revision };
+  const savedEnvironment = Object.fromEntries(Object.keys(mixedEnvironment).map(key => [key, process.env[key]]));
+  const originalFetch = globalThis.fetch, audio = join(root, "fixture.wav");
+  await writeFile(audio, "isolated audio bytes");
+  let directCalls = 0, directFailure = false;
+  try {
+    Object.assign(process.env, mixedEnvironment);
+    globalThis.fetch = async (url, init) => {
+      if (new URL(String(url)).origin === lastLaunch.broker.origin) return originalFetch(url, init);
+      assert.equal(String(url), "https://api.stepfun.com/v1/audio/asr/sse");
+      assert.equal(new Headers(init.headers).get("Authorization"), "Bearer independent-asr-key");
+      assert.equal(JSON.parse(init.body).audio.input.transcription.model, "stepaudio-2.5-asr");
+      directCalls++;
+      return directFailure ? new Response("isolated direct failure", { status: 429 })
+        : new Response('data: {"type":"transcript.text.done","text":"isolated ASR text"}\n\n');
+    };
+    assert.equal(await analyzeMediaWithProvider(audio, "summarize speech"), "isolated BVR visual result");
+    assert.equal(directCalls, 1);
+    assert.equal(calls.length, 7); assert.equal(confirmations, 5);
+    directFailure = true;
+    await assert.rejects(analyzeMediaWithProvider(audio, "do not switch providers"), /429/);
+    assert.equal(directCalls, 2);
+    assert.equal(calls.length, 7); assert.equal(confirmations, 5);
+  } finally {
+    globalThis.fetch = originalFetch;
+    for (const [key, value] of Object.entries(savedEnvironment)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+
+  const config = await configurations.save(descriptor, { ref: descriptor.ref, revision: asrOnly.revision,
     values: { provider: "stepfun", base_url: "https://api.stepfun.com/v1", model: "independent-fixture" },
-    secrets: { api_key: { action: "replace", value: "independent-fixture-key" }, asr_api_key: { action: "keep" } } });
+    secrets: { api_key: { action: "replace", value: "independent-fixture-key" }, asr_api_key: { action: "delete" } } });
   selection = await selections.select(descriptor, { revision: selection.revision, mode: "independent",
     configurationRevision: config.revision });
   broker.invalidate(); state.auth = {};
   await connect();
   assert.equal(lastLaunch.mode, "independent"); assert.equal(lastLaunch.broker, undefined);
-  assert.equal(calls.length, 5); assert.equal(confirmations, 3);
+  assert.equal(calls.length, 7); assert.equal(confirmations, 5);
   await configurations.save(descriptor, { ref: descriptor.ref, revision: config.revision,
     values: { ...config.values, model: "changed-fixture" },
     secrets: { api_key: { action: "keep" }, asr_api_key: { action: "keep" } } });
   const obsolete = await call();
   assert.equal(obsolete.isError, true); assert.match(JSON.stringify(obsolete), /Restart the session/);
-  results.push(obsolete); assert.equal(calls.length, 5);
+  results.push(obsolete); assert.equal(calls.length, 7);
   assert.doesNotMatch(JSON.stringify([results, stderr]),
-    /fixture-cn-key|fixture-oversea-key|independent-fixture-key|wrong-inherited-key|wrong-gemini-key|fixture-provider-body-must-not-escape/);
+    /fixture-cn-key|fixture-oversea-key|independent-fixture-key|independent-asr-key|wrong-inherited-key|wrong-gemini-key|fixture-provider-body-must-not-escape/);
   assert.equal(stderr, "");
   console.log(JSON.stringify({
     realBvrMcp: true, realLocalFfmpeg: true, realGenericBrokerAndStepAdapter: true,
     nativeLauncherOrElectronUi: false, realAccountOrPaidProvider: false,
-    isolatedProviderCalls: calls.length,
+    isolatedBrokerProviderCalls: calls.length, isolatedDirectAsrCalls: directCalls,
     checks: ["discovery is free", "denial without retry", "approval and launch reuse", "provider failure without fallback",
       "MCP cancellation reaches provider", "account replacement rejects old launch", "fresh overseas approval",
-      "independent sealed configuration without login", "stale independent revision blocks before network"],
+      "mixed launch with isolated ASR settings and Broker video", "direct ASR followed by Broker text without failure fallback",
+      "independent sealed configuration without login",
+      "stale independent revision blocks before network"],
   }, null, 2));
 } finally {
   try { await client?.close(); }

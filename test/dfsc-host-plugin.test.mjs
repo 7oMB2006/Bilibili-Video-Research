@@ -14,7 +14,8 @@ async function runtime(t) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "bvr-generic-launch-")));
   t.after(() => rm(root, { recursive: true, force: true, maxRetries: 5 }));
   await mkdir(join(root, "src"));
-  await writeFile(join(root, "package.json"), JSON.stringify({ name: "bilibili-video-research-mcp", dfscHostApiVersion: 1 }));
+  await writeFile(join(root, "package.json"), JSON.stringify({ name: "bilibili-video-research-mcp", dfscHostApiVersion: 1,
+    dfscCapabilityRoutingVersion: 1 }));
   await writeFile(join(root, "src", "index.ts"), "");
   for (const name of ["tsx", "dotenv", "@modelcontextprotocol/sdk", "ffmpeg-static", "yt-dlp-exec"]) {
     const path = join(root, "node_modules", name);
@@ -37,7 +38,9 @@ test("the candidate uses the public host declaration and a separate independent 
   const manifest = JSON.parse(await readFile(new URL("step.plugin.json", directory), "utf8"));
   const declaration = JSON.parse(await readFile(new URL("dfsc.host.json", directory), "utf8"));
   const schema = JSON.parse(await readFile(new URL("dfsc.settings.json", directory), "utf8"));
-  assert.deepEqual(parseHostDeclaration(declaration, manifest).capabilities, ["model.text", "model.video", "model.asr"]);
+  const host = parseHostDeclaration(declaration, manifest);
+  assert.deepEqual(host.capabilities, ["model.text", "model.video", "model.asr"]);
+  assert.deepEqual(host.independentCapabilities, host.capabilities);
   assert.deepEqual(schema.consumer, { kind: "json-file-v1", server: "bvr" });
   assert.equal(schema.groups.find(group => group.id === "asr").fields.some(field => field.id === "asr_api_key" && field.type === "secret"), true);
 });
@@ -66,6 +69,25 @@ test("independent launch uses only its exact committed revision and does not car
   assert.equal(JSON.parse(prepared.environment.DFSC_LAUNCH_CONTEXT).broker, undefined);
   await assert.rejects(prepareHostLaunch({ runtimeDirectory }, launch, {}, { ...configuration, revision: "0".repeat(64) }), /revision changed/);
   await assert.rejects(prepareHostLaunch({ runtimeDirectory }, launch, {}), /revision changed/);
+});
+
+test("mixed launch reads only the chosen connection fields and requires a routing-aware runtime", async t => {
+  const runtimeDirectory = await runtime(t), configuration = independent();
+  delete configuration.secrets.api_key;
+  delete configuration.values.model;
+  const mixed = hostLaunch({ capabilities: ["model.text", "model.video"], independentCapabilities: ["model.asr"],
+    configurationRevision: configuration.revision });
+  const setup = { runtimeDirectory };
+  const prepared = await prepareHostLaunch(setup, mixed, { STEPFUN_API_KEY: "wrong-parent-key" }, configuration);
+  assert.equal(prepared.channel, "routed");
+  assert.equal(prepared.environment.STEPFUN_API_KEY, undefined);
+  assert.equal(prepared.environment.STEPFUN_ASR_API_KEY, "independent-asr-key");
+  assert.deepEqual(JSON.parse(prepared.environment.DFSC_LAUNCH_CONTEXT), mixed);
+  await assert.rejects(prepareHostLaunch(setup, mixed, {}, { ...configuration, revision: "0".repeat(64) }), /revision changed/);
+  configuration.values.asr_base_url = "https://not-step.example/v1";
+  await assert.rejects(prepareHostLaunch(setup, mixed, {}, configuration), /explicit official ASR endpoint/);
+  await writeFile(join(runtimeDirectory, "package.json"), JSON.stringify({ name: "bilibili-video-research-mcp", dfscHostApiVersion: 1 }));
+  await assert.rejects(prepareHostLaunch(setup, mixed, {}, configuration), /per-capability DFSC routing/);
 });
 
 test("ASR partial settings and wrong providers fail rather than borrow the main model key", () => {

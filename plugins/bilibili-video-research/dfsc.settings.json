@@ -12,8 +12,9 @@
           ] },
         { "id": "base_url", "label": "Step 接口地址 / Step Endpoint", "type": "text", "maxLength": 512,
           "help": "仅阶跃官方 API 或 Plan 地址；Gemini 留空 / Official Step API or Plan; empty for Gemini" },
-        { "id": "api_key", "label": "主力 API Key / Main API Key", "type": "secret", "required": true },
-        { "id": "model", "label": "主力模型 / Main Model", "type": "text", "required": true, "maxLength": 160 }
+        { "id": "api_key", "label": "主力 API Key / Main API Key", "type": "secret",
+          "help": "仅文本或视频理解走独立配置时必填 / Required when text or video uses Independent" },
+        { "id": "model", "label": "主力模型 / Main Model", "type": "text", "maxLength": 160 }
       ]
     },
     {

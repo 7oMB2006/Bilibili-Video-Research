@@ -5,8 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { execFile as execFileCallback } from "node:child_process";
-import { analyzeWithDfsc, followsDfsc, withDfscOperation } from "./dfsc.js";
-import { assertDfscConfigurationCurrent } from "./dfsc-configuration.js";
+import { analyzeWithDfsc, assertDirectModelRoute, dfscModelRoute, managedByDfsc, usesDfscAsrRoute, withDfscOperation } from "./dfsc.js";
 
 const execFile = promisify(execFileCallback);
 const require = createRequire(import.meta.url);
@@ -80,7 +79,7 @@ async function assertReadableMedia(videoPath: string): Promise<void> {
 async function waitForFile(ai: GoogleGenAI, name: string): Promise<{ uri: string; mimeType: string }> {
   const deadline = Date.now() + PROCESSING_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    await assertDfscConfigurationCurrent();
+    await assertDirectModelRoute("video");
     const current = await ai.files.get({ name });
     if (current.state === FileState.ACTIVE && current.uri && current.mimeType) {
       return { uri: current.uri, mimeType: current.mimeType };
@@ -167,17 +166,16 @@ export async function createAudioTrack(videoPath: string): Promise<{ directory: 
 
 export async function analyzeMediaWithProvider(mediaPath: string, prompt: string, mediaDetail: MediaDetail = "default"): Promise<string> {
   await assertReadableMedia(mediaPath);
-  if (followsDfsc()) return withDfscOperation(async () => {
-    const mimeType = mediaMimeType(mediaPath);
-    const info = await fs.stat(mediaPath);
-    if (info.size > 23 * 1024 * 1024) throw new Error("DFSC media is limited to 23 MiB per request. Use a shorter video window.");
-    const data = (await fs.readFile(mediaPath)).toString("base64");
-    if (mimeType.startsWith("audio/")) {
-      const transcript = await analyzeWithDfsc("asr", prompt, { mimeType, data });
-      return analyzeWithDfsc("text", `${prompt}\n\nASR TRANSCRIPT (language evidence):\n${transcript}`);
-    }
-    return analyzeWithDfsc("video", `${stepfunDetailInstruction(mediaDetail)}\n\n${prompt}`, { mimeType, data });
+  const mimeType = mediaMimeType(mediaPath);
+  const audio = mimeType.startsWith("audio/");
+  if (audio && (usesDfscAsrRoute() || selectedProvider() === "stepfun")) return withDfscOperation(async () => {
+    const transcript = dfscModelRoute("asr") === "broker"
+      ? await analyzeWithDfsc("asr", prompt, await brokerMedia(mediaPath, mimeType))
+      : await transcribeAudioWithStepfun(mediaPath, mimeType);
+    return analyzeTextWithProvider(`${prompt}\n\nASR TRANSCRIPT (language evidence):\n${transcript}`);
   });
+  if (dfscModelRoute("video") === "broker")
+    return analyzeWithDfsc("video", `${stepfunDetailInstruction(mediaDetail)}\n\n${prompt}`, await brokerMedia(mediaPath, mimeType));
   const provider = selectedProvider();
   if (provider === "stepfun") return analyzeMediaWithStepfun(mediaPath, prompt, mediaDetail);
 
@@ -187,7 +185,7 @@ export async function analyzeMediaWithProvider(mediaPath: string, prompt: string
   }
 
   const ai = new GoogleGenAI({ apiKey });
-  await assertDfscConfigurationCurrent();
+  await assertDirectModelRoute("video");
   const uploaded = await ai.files.upload({
     file: mediaPath,
     config: { displayName: path.basename(mediaPath) },
@@ -198,7 +196,7 @@ export async function analyzeMediaWithProvider(mediaPath: string, prompt: string
 
   try {
     const file = await waitForFile(ai, uploaded.name);
-    await assertDfscConfigurationCurrent();
+    await assertDirectModelRoute("video");
     const response = await ai.models.generateContent({
       model: process.env.GEMINI_VIDEO_MODEL ?? "gemini-2.5-flash",
       contents: [{
@@ -218,16 +216,22 @@ export async function analyzeMediaWithProvider(mediaPath: string, prompt: string
   }
 }
 
+async function brokerMedia(mediaPath: string, mimeType: string) {
+  const info = await fs.stat(mediaPath);
+  if (info.size > 23 * 1024 * 1024) throw new Error("DFSC media is limited to 23 MiB per request. Use a shorter video window.");
+  return { mimeType, data: (await fs.readFile(mediaPath)).toString("base64") };
+}
+
 function stepfunBaseUrl(): string {
   const configured = process.env.STEPFUN_BASE_URL?.trim();
   if (configured) return configured.replace(/\/+$/, "");
   return "https://api.stepfun.com/v1";
 }
 
-async function stepfunRequest(pathname: string, init: RequestInit, asr = false): Promise<Response> {
-  if (followsDfsc()) throw new Error("Direct Step requests are disabled in Follow DFSC mode.");
-  await assertDfscConfigurationCurrent();
-  const separateAsr = asr && (process.env.STEPFUN_ASR_BASE_URL !== undefined || process.env.STEPFUN_ASR_API_KEY !== undefined);
+async function stepfunRequest(kind: "text" | "video" | "asr", pathname: string, init: RequestInit): Promise<Response> {
+  await assertDirectModelRoute(kind);
+  const separateAsr = kind === "asr" && (dfscModelRoute("asr") === "independent"
+    || process.env.STEPFUN_ASR_BASE_URL !== undefined || process.env.STEPFUN_ASR_API_KEY !== undefined);
   const apiKey = separateAsr ? process.env.STEPFUN_ASR_API_KEY : process.env.STEPFUN_API_KEY;
   const base = separateAsr ? process.env.STEPFUN_ASR_BASE_URL?.trim().replace(/\/+$/, "") : stepfunBaseUrl();
   if (separateAsr && (!apiKey?.trim() || !base))
@@ -238,6 +242,10 @@ async function stepfunRequest(pathname: string, init: RequestInit, asr = false):
     headers: { Authorization: `Bearer ${apiKey}`, ...(init.headers ?? {}) },
   });
   if (!response.ok) {
+    if (managedByDfsc()) {
+      await response.body?.cancel().catch(() => {});
+      throw new Error(`StepFun API request failed (${response.status}); no fallback was used.`);
+    }
     const body = await response.text();
     throw new Error(`StepFun API request failed (${response.status}): ${body.slice(0, 500)}`);
   }
@@ -252,10 +260,6 @@ function stepfunDetailInstruction(mediaDetail: MediaDetail): string {
 
 async function analyzeMediaWithStepfun(mediaPath: string, prompt: string, mediaDetail: MediaDetail): Promise<string> {
   const sourceMimeType = mediaMimeType(mediaPath);
-  if (sourceMimeType.startsWith("audio/")) {
-    const transcript = await transcribeAudioWithStepfun(mediaPath, sourceMimeType);
-    return analyzeTextWithStepfun(`${prompt}\n\nASR TRANSCRIPT (language evidence):\n${transcript}`);
-  }
   const detailedPrompt = `${stepfunDetailInstruction(mediaDetail)}\n\n${prompt}`;
   if (stepfunBaseUrl().toLowerCase().includes("step_plan")) {
     const bytes = await fs.readFile(mediaPath);
@@ -270,7 +274,7 @@ async function analyzeMediaWithStepfun(mediaPath: string, prompt: string, mediaD
   const form = new FormData();
   form.append("purpose", "storage");
   form.append("file", new Blob([bytes], { type: mimeType }), path.basename(mediaPath));
-  const uploadResponse = await stepfunRequest("/files", { method: "POST", body: form });
+  const uploadResponse = await stepfunRequest("video", "/files", { method: "POST", body: form });
   const uploaded = await uploadResponse.json() as { id?: string; data?: { id?: string } };
   const fileId = uploaded.id ?? uploaded.data?.id;
   if (!fileId) throw new Error("StepFun did not return a file ID after upload.");
@@ -280,12 +284,12 @@ async function analyzeMediaWithStepfun(mediaPath: string, prompt: string, mediaD
       { type: "text", text: detailedPrompt },
     ]);
   } finally {
-    await stepfunRequest(`/files/${fileId}`, { method: "DELETE" }).catch(() => undefined);
+    await stepfunRequest("video", `/files/${fileId}`, { method: "DELETE" }).catch(() => undefined);
   }
 }
 
 async function analyzeContentWithStepfun(content: unknown[]): Promise<string> {
-  const completion = await stepfunRequest("/chat/completions", {
+  const completion = await stepfunRequest("video", "/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -301,7 +305,7 @@ async function analyzeContentWithStepfun(content: unknown[]): Promise<string> {
 
 async function transcribeAudioWithStepfun(audioPath: string, mimeType: string): Promise<string> {
   const bytes = await fs.readFile(audioPath);
-  const response = await stepfunRequest("/audio/asr/sse", {
+  const response = await stepfunRequest("asr", "/audio/asr/sse", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -320,7 +324,7 @@ async function transcribeAudioWithStepfun(audioPath: string, mimeType: string): 
         },
       },
     }),
-  }, true);
+  });
   const streamText = await response.text();
   const deltas: string[] = [];
   const doneTexts: string[] = [];
@@ -345,7 +349,7 @@ async function transcribeAudioWithStepfun(audioPath: string, mimeType: string): 
 export { transcribeAudioWithStepfun };
 
 export async function analyzeTextWithProvider(prompt: string): Promise<string> {
-  if (followsDfsc()) return analyzeWithDfsc("text", prompt);
+  if (dfscModelRoute("text") === "broker") return analyzeWithDfsc("text", prompt);
   const provider = selectedProvider();
   if (provider === "stepfun") return analyzeTextWithStepfun(prompt);
 
@@ -354,7 +358,7 @@ export async function analyzeTextWithProvider(prompt: string): Promise<string> {
     throw new Error("GEMINI_API_KEY is not configured for bilibili-video-research-mcp.");
   }
   const ai = new GoogleGenAI({ apiKey });
-  await assertDfscConfigurationCurrent();
+  await assertDirectModelRoute("text");
   const response = await ai.models.generateContent({
     model: process.env.GEMINI_VIDEO_MODEL ?? "gemini-2.5-flash",
     contents: prompt,
@@ -366,7 +370,7 @@ export async function analyzeTextWithProvider(prompt: string): Promise<string> {
 }
 
 async function analyzeTextWithStepfun(prompt: string): Promise<string> {
-  const completion = await stepfunRequest("/chat/completions", {
+  const completion = await stepfunRequest("text", "/chat/completions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

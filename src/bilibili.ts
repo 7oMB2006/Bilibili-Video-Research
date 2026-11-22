@@ -4,6 +4,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import { execFile as execFileCallback } from "node:child_process";
 import { analyzeMediaWithProvider, analyzeTextWithProvider, createAudioTrack, createVideoWindow, createSilentVideo, createSilentWindow, getConfiguredVideoProvider, getFfmpegPath, removeTemporaryWindow, type MediaDetail } from "./video-analysis.js";
+import { usesDfscAsrRoute } from "./dfsc.js";
 import { assessDownloadedQuality, parseYtDlpMetadata, resolveSourceQuality, selectYtDlpFormat, type ResolvedSourceQuality, type SourceQualityReport, type SourceQualityRequest } from "./media-quality.js";
 
 const execFile = promisify(execFileCallback);
@@ -612,7 +613,7 @@ export async function researchBilibiliVideo(request: BilibiliResearchRequest): P
           const audio = await createAudioTrack(sourceWindow?.clipPath ?? downloaded.path);
           try {
             return finish(await analyzeMediaWithProvider(audio.audioPath, languagePrompt(context, request.question, "No Bilibili captions were available. Transcribe the supplied audio."), request.mediaDetail), {
-              language: getConfiguredVideoProvider() === "gemini" ? "gemini_audio" : "stepfun_asr",
+              language: !usesDfscAsrRoute() && getConfiguredVideoProvider() === "gemini" ? "gemini_audio" : "stepfun_asr",
               timestamps: "none",
               source_quality: serializeSourceQuality(sourceQuality, downloaded.quality),
             });
